@@ -1,0 +1,54 @@
+recorder:
+  # 截图配置
+  screenshots:
+    enabled: false  # 启用截图：true   关闭：false
+    on_events:  # 配置截图时机
+      - navigation  # 页面导航时截屏
+      # - click       # 点击时截屏（注意：可能导致轻微抖动，如不需要可删除此行）
+      # - submit    # 表单提交时截屏（可选）
+    quality: 90  # 截图质量 (1-100)
+
+  # 网络监控配置
+  network:
+    enabled: true  # 启用网络监控：true   关闭：false
+    capture_request: true  # 捕获请求数据
+    capture_response: true  # 捕获响应数据
+    capture_body: true  # 捕获请求/响应体
+    max_body_size: 1048576  # 最大body大小（字节），超过此大小将存储到network/文件夹
+  
+  # 默认网址预设
+  default_urls:
+  - name: "\u767E\u5EA6"
+    url: https://www.baidu.com
+  - name: "\u6DD8\u5B9D"
+    url: https://www.taobao.com
+  - name: "\u4EAC\u4E1C"
+    url: https://www.jd.com
+  - name: GitHub
+    url: https://github.com
+  - name: "\u672C\u5730\u5F00\u53D1"
+    url: http://localhost:3000
+  - name: "\u7A7A\u767D\u9875"
+    url: ''
+  privacy_mode: none
+  test_timestamp: '2024-01-20T00:00:00Z'
+  test_update: true
+  window_sizes:
+  - height: 720
+    name: "小窗口 (1280×720)"
+    width: 1280
+  - height: 900
+    name: "标准 (1440×900)"
+    width: 1440
+  - height: 1080
+    name: "高清 (1920×1080)"
+    width: 1920
+  - height: 1440
+    name: "2K (2560×1440)"
+    width: 2560
+  - height: 1200
+    name: "超宽 (1920×1200)"
+    width: 1920
+  - height: 0
+    name: "自定义"
+    width: 0

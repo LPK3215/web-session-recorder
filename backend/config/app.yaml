@@ -1,0 +1,20 @@
+app:
+  debug: true
+  name: Web Session Recorder
+  version: 1.0.0
+logging:
+  backup_count: 5
+  file: logs/app.log
+  level: INFO
+  max_size: 10MB
+output:
+  network_dir: network
+  runs_dir: runs
+  screenshots_dir: screenshots
+server:
+  cors_origins:
+  - http://localhost:5173
+  - http://localhost:3000
+  host: 127.0.0.1
+  port: 8000
+  reload: false

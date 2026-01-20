@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree /F /A \"d:\\\\Application\\\\A_Develop\\\\SourceCode\\\\Py\\\\web-session-recorder\\\\backend\")",
+      "Bash(if exist database rmdir /s /q database)",
+      "Bash(if exist migrations rmdir /s /q migrations)",
+      "Bash(if exist appdb rmdir /s /q appdb)",
+      "Bash(if exist configdatabase.yaml del configdatabase.yaml)",
+      "Bash(if exist teststest_database_integration.py del teststest_database_integration.py)",
+      "Bash(python -c \"import sys, json; data = json.load\\(sys.stdin\\); print\\(json.dumps\\(data[''session''], indent=2\\)\\)\")",
+      "Bash(if exist test_locator_integration.py del test_locator_integration.py)",
+      "Bash(python -c \"import shutil; shutil.rmtree\\(''examples''\\); shutil.rmtree\\(''tests''\\); print\\(''Successfully deleted examples and tests directories''\\)\")",
+      "Bash(python -c \"\nimport requests\nimport json\n\ntry:\n    # 测试服务是否运行\n    response = requests.get\\(''http://localhost:8000/api/sessions'', params={''page'': 1, ''page_size'': 5}, timeout=2\\)\n    print\\(f''✅ 服务正在运行''\\)\n    print\\(f''状态码: {response.status_code}''\\)\n    data = response.json\\(\\)\n    print\\(f''会话总数: {data.get\\(\"\"total\"\", 0\\)}''\\)\n    print\\(f''当前页会话数: {len\\(data.get\\(\"\"sessions\"\", []\\)\\)}''\\)\nexcept requests.exceptions.ConnectionError:\n    print\\(''❌ 服务未运行，请先启动后端服务''\\)\n    print\\(''启动命令: python run.py''\\)\nexcept Exception as e:\n    print\\(f''❌ 错误: {e}''\\)\n\")",
+      "Bash(python run.py)",
+      "Bash(python -c \"\nimport requests\nimport json\n\nprint\\(''=== 测试后端API功能 ===\\\\n''\\)\n\n# 1. 测试获取会话列表\nprint\\(''1. 测试获取会话列表...''\\)\ntry:\n    response = requests.get\\(''http://localhost:8000/api/sessions'', params={''page'': 1, ''page_size'': 5}, timeout=5\\)\n    if response.status_code == 200:\n        data = response.json\\(\\)\n        print\\(f''   成功: 会话总数 {data.get\\(\"\"total\"\", 0\\)}, 当前页 {len\\(data.get\\(\"\"sessions\"\", []\\)\\)} 个''\\)\n    else:\n        print\\(f''   失败: 状态码 {response.status_code}''\\)\nexcept Exception as e:\n    print\\(f''   错误: {str\\(e\\)[:100]}''\\)\n\n# 2. 测试搜索功能\nprint\\(''\\\\n2. 测试搜索功能 \\(按URL过滤\\)...''\\)\ntry:\n    response = requests.get\\(''http://localhost:8000/api/sessions'', params={''url'': ''baidu'', ''page'': 1}, timeout=5\\)\n    if response.status_code == 200:\n        data = response.json\\(\\)\n        print\\(f''   成功: 找到 {data.get\\(\"\"total\"\", 0\\)} 个包含\"\"baidu\"\"的会话''\\)\n    else:\n        print\\(f''   失败: 状态码 {response.status_code}''\\)\nexcept Exception as e:\n    print\\(f''   错误: {str\\(e\\)[:100]}''\\)\n\nprint\\(''\\\\n=== 测试完成 ===''\\)\n\")",
+      "Bash(python -c \"\nimport requests\nimport json\n\nprint\\(''=== 测试新增API功能 ===\\\\n''\\)\n\n# 获取一个会话ID用于测试\nprint\\(''获取测试用的会话ID...''\\)\nresponse = requests.get\\(''http://localhost:8000/api/sessions'', params={''page'': 1, ''page_size'': 1}\\)\nsessions = response.json\\(\\).get\\(''sessions'', []\\)\nif sessions:\n    test_session_id = sessions[0][''run_id'']\n    print\\(f''使用会话: {test_session_id}\\\\n''\\)\n    \n    # 3. 测试更新会话（添加备注）\n    print\\(''3. 测试更新会话（添加备注和名称）...''\\)\n    try:\n        response = requests.patch\\(\n            f''http://localhost:8000/api/sessions/{test_session_id}'',\n            params={''name'': ''测试会话'', ''notes'': ''这是一个测试备注''}\n        \\)\n        if response.status_code == 200:\n            print\\(f''   成功: {response.json\\(\\).get\\(\"\"message\"\"\\)}''\\)\n        else:\n            print\\(f''   失败: 状态码 {response.status_code}''\\)\n    except Exception as e:\n        print\\(f''   错误: {str\\(e\\)[:100]}''\\)\n    \n    # 4. 测试搜索功能（按日期）\n    print\\(''\\\\n4. 测试日期过滤...''\\)\n    try:\n        response = requests.get\\(\n            ''http://localhost:8000/api/sessions'',\n            params={''start_date'': ''2026-01-20'', ''page'': 1}\n        \\)\n        if response.status_code == 200:\n            data = response.json\\(\\)\n            print\\(f''   成功: 找到 {data.get\\(\"\"total\"\", 0\\)} 个2026-01-20的会话''\\)\n        else:\n            print\\(f''   失败: 状态码 {response.status_code}''\\)\n    except Exception as e:\n        print\\(f''   错误: {str\\(e\\)[:100]}''\\)\nelse:\n    print\\(''没有找到会话，跳过测试''\\)\n\nprint\\(''\\\\n=== 所有API功能测试完成 ===''\\)\nprint\\(''注意: 删除和批量删除功能已实现，但未在此测试中执行以保留数据''\\)\n\")",
+      "Bash(curl -X GET \"http://localhost:8000/api/sessions/stats\" -H \"accept: application/json\")",
+      "Bash(curl -X POST \"http://localhost:8000/api/sessions/session_20260120_161516_64c1cad3/tags\" -H \"Content-Type: application/json\" -d \"[\"\"测试标签\"\", \"\"重要\"\"]\")",
+      "Bash(timeout /t 3)",
+      "Bash(curl -X GET \"http://localhost:8000/api/sessions/session_20260120_161516_64c1cad3/generate-script?framework=playwright\" -H \"accept: text/plain\")",
+      "Bash(curl -X POST \"http://localhost:8000/api/sessions/session_20260120_161516_64c1cad3/tags\" -H \"Content-Type: application/json\" -d \"[\"\"test\"\", \"\"important\"\"]\")",
+      "Bash(curl -X GET \"http://localhost:8000/api/sessions?tags=test&page=1\" -H \"accept: application/json\")",
+      "Bash(curl -X DELETE \"http://localhost:8000/api/sessions/session_20260120_161516_64c1cad3/tags\" -H \"Content-Type: application/json\" -d \"[\"\"test\"\"]\")",
+      "Bash(curl -X GET \"http://localhost:8000/api/sessions?tags=important&page=1\" -H \"accept: application/json\")",
+      "Bash(curl -X POST \"http://localhost:8000/api/sessions/batch-delete\" -H \"Content-Type: application/json\" -d \"{\"\"session_ids\"\":[\"\"session_20260120_050848_87e72ce1\"\",\"\"session_20260120_050857_d41cf39a\"\"]}\")",
+      "Bash(curl -X DELETE \"http://localhost:8000/api/sessions/session_20260120_051109_f20853f3\" -H \"accept: application/json\")",
+      "Bash(curl -s -X GET \"http://localhost:8000/api/sessions/stats\")",
+      "Bash(python -m json.tool)",
+      "Bash(curl -s -X GET \"http://localhost:8000/api/sessions?page=1&page_size=3\")",
+      "Bash(dir /b)",
+      "Bash(npm run build)"
+    ]
+  }
+}

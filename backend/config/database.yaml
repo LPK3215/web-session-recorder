@@ -1,0 +1,11 @@
+database:
+  path: database/recorder.db
+  pool:
+    max_overflow: 10
+    size: 5
+    timeout: 30
+  retention:
+    auto_cleanup: false
+    days: 30
+    enabled: false
+  type: sqlite

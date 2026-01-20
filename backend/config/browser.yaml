@@ -1,0 +1,27 @@
+browser:
+  context:
+    accept_downloads: true
+    ignore_https_errors: true
+    incognito: true
+    locale: zh-CN
+    timezone_id: Asia/Shanghai
+    viewport:
+      height: 1080
+      width: 1920
+  default_type: chrome
+  launch:
+    args:
+    - --start-maximized
+    - --disable-blink-features=AutomationControlled
+    headless: false
+    slow_mo: 0
+    timeout: 30000
+  paths:
+    chrome: C:/Program Files/Google/Chrome/Application/chrome.exe
+    edge: C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe
+    firefox: C:/Program Files/Mozilla Firefox/firefox.exe
+  use_local: true
+  user_data:
+    chrome: ''
+    edge: ''
+    enabled: false
