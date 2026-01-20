@@ -11,13 +11,22 @@ recorder:
   # 网络监控配置
   network:
     enabled: true  # 启用网络监控：true   关闭：false
+    # 采集模式：
+    # - all:     采集所有请求（受 ignore_resource_types / ignore_url_patterns 影响）
+    # - minimal: 仅采集 include_url_patterns 命中的请求
+    capture_mode: all
+    include_url_patterns: []
     capture_request: true  # 捕获请求数据
     capture_response: true  # 捕获响应数据
     capture_body: true  # 捕获请求/响应体
     max_body_size: 1048576  # 最大body大小（字节），超过此大小将存储到network/文件夹
+    # 对文本 body 进行截断（避免 JSON 太大）；null/0 表示不截断
+    max_body_text_len: 0
   
   # 默认网址预设
   default_urls:
+  - name: "空白页"
+    url: ''
   - name: "\u767E\u5EA6"
     url: https://www.baidu.com
   - name: "\u6DD8\u5B9D"
@@ -28,8 +37,6 @@ recorder:
     url: https://github.com
   - name: "\u672C\u5730\u5F00\u53D1"
     url: http://localhost:3000
-  - name: "\u7A7A\u767D\u9875"
-    url: ''
   privacy_mode: none
   test_timestamp: '2024-01-20T00:00:00Z'
   test_update: true

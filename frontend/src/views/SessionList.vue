@@ -106,7 +106,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="duration" label="持续时间" width="120">
+        <el-table-column prop="duration_ms" label="持续时间" width="120" sortable>
           <template #default="{ row }">
             {{ calculateDuration(row.start_time, row.end_time) }}
           </template>
@@ -263,7 +263,13 @@ const fetchSessions = async () => {
     // Call API
     const response = await sessionAPI.getSessions(params)
     
-    sessions.value = response.data.sessions || []
+    const now = Date.now()
+    sessions.value = (response.data.sessions || []).map((session) => {
+      const start = session.start_time ? new Date(session.start_time).getTime() : null
+      const end = session.end_time ? new Date(session.end_time).getTime() : null
+      const durationMs = start ? ((end ?? now) - start) : 0
+      return { ...session, duration_ms: Number.isFinite(durationMs) ? durationMs : 0 }
+    })
     pagination.value.total = response.data.total || 0
   } catch (error) {
     console.error('Failed to fetch sessions:', error)

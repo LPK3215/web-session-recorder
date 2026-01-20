@@ -19,12 +19,18 @@ class BrowserController:
         self.page: Optional[Page] = None
         self._window_width: Optional[int] = None
         self._window_height: Optional[int] = None
+        self._browser_type: str = "chrome"
+        self._use_local: bool = True
+        self._headless: bool = False
+        self._launch_options: Dict[str, Any] = {}
     
     async def launch_browser(
         self,
         browser_type: str = "chrome",
         headless: bool = False,
         use_local: bool = True,
+        incognito: bool = False,
+        user_data_dir: Optional[str] = None,
         window_width: Optional[int] = None,
         window_height: Optional[int] = None
     ) -> Browser:
@@ -41,6 +47,10 @@ class BrowserController:
         Returns:
             Browser instance
         """
+        self._browser_type = browser_type
+        self._use_local = use_local
+        self._headless = headless
+
         if not self.playwright:
             self.playwright = await async_playwright().start()
         
@@ -61,9 +71,23 @@ class BrowserController:
             'timeout': timeout,
             'slow_mo': slow_mo
         }
-        
+        self._launch_options = launch_options
+
         # Launch browser based on type
         try:
+            # Persistent context: apply user_data_dir (non-incognito only)
+            if user_data_dir and not incognito:
+                self.context = await self._launch_persistent_context(
+                    browser_type=browser_type,
+                    user_data_dir=user_data_dir,
+                    launch_options=launch_options,
+                    window_width=window_width,
+                    window_height=window_height
+                )
+                self.browser = self.context.browser
+                logger.info(f"Launched persistent context with user_data_dir: {user_data_dir}")
+                return self.browser
+
             if browser_type == "chrome" and use_local:
                 self.browser = await self.playwright.chromium.launch(
                     channel="chrome",
@@ -89,6 +113,91 @@ class BrowserController:
         except Exception as e:
             logger.error(f"Error launching browser: {e}")
             raise
+
+    async def _launch_persistent_context(
+        self,
+        browser_type: str,
+        user_data_dir: str,
+        launch_options: Dict[str, Any],
+        window_width: Optional[int] = None,
+        window_height: Optional[int] = None
+    ) -> BrowserContext:
+        """
+        Launch a persistent browser context.
+
+        Note: Playwright persistent profiles are created via launch_persistent_context,
+        not via browser.new_context().
+        """
+        if not self.playwright:
+            self.playwright = await async_playwright().start()
+
+        # Get context options from config
+        default_viewport = config.get('browser', 'browser.context.viewport', {'width': 1920, 'height': 1080})
+        viewport = {
+            'width': window_width if window_width else default_viewport.get('width', 1920),
+            'height': window_height if window_height else default_viewport.get('height', 1080)
+        }
+
+        locale = config.get('browser', 'browser.context.locale', 'zh-CN')
+        timezone_id = config.get('browser', 'browser.context.timezone_id', 'Asia/Shanghai')
+        accept_downloads = config.get('browser', 'browser.context.accept_downloads', True)
+        ignore_https_errors = config.get('browser', 'browser.context.ignore_https_errors', True)
+
+        context_options = {
+            'viewport': viewport,
+            'locale': locale,
+            'timezone_id': timezone_id,
+            'accept_downloads': accept_downloads,
+            'ignore_https_errors': ignore_https_errors
+        }
+
+        launch_persistent_options = {
+            **launch_options,
+            **context_options
+        }
+
+        try:
+            # Close any existing browser/context first
+            if self.context:
+                try:
+                    await self.context.close()
+                except Exception:
+                    pass
+                self.context = None
+            if self.browser:
+                try:
+                    await self.browser.close()
+                except Exception:
+                    pass
+                self.browser = None
+
+            if browser_type in ("chrome", "edge"):
+                channel = "chrome" if browser_type == "chrome" else "msedge"
+                chromium_kwargs = {
+                    "user_data_dir": user_data_dir,
+                    **launch_persistent_options
+                }
+                if self._use_local:
+                    chromium_kwargs["channel"] = channel
+                context = await self.playwright.chromium.launch_persistent_context(**chromium_kwargs)
+            elif browser_type == "firefox":
+                context = await self.playwright.firefox.launch_persistent_context(
+                    user_data_dir=user_data_dir,
+                    **launch_persistent_options
+                )
+            else:
+                context = await self.playwright.chromium.launch_persistent_context(
+                    user_data_dir=user_data_dir,
+                    **launch_persistent_options
+                )
+
+            self._window_width = viewport['width']
+            self._window_height = viewport['height']
+            return context
+
+        except Exception as e:
+            logger.error(f"Error launching persistent context: {e}")
+            raise
     
     async def create_context(
         self,
@@ -109,8 +218,15 @@ class BrowserController:
         Returns:
             BrowserContext instance
         """
+        # If we already created a persistent context in launch_browser(), return it directly.
+        if self.context and user_data_dir and not incognito:
+            return self.context
+
         if not self.browser:
             raise RuntimeError("Browser not launched. Call launch_browser() first.")
+
+        if user_data_dir and incognito:
+            logger.warning("incognito=true with user_data_dir provided; user_data_dir will be ignored")
         
         # Get context options from config
         default_viewport = config.get('browser', 'browser.context.viewport', {'width': 1920, 'height': 1080})

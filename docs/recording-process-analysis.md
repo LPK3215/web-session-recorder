@@ -5,7 +5,7 @@
 ```
 用户点击"开始录制"
     ↓
-创建会话记录（数据库）
+创建会话状态（内存）
     ↓
 创建会话文件夹（backend/runs/session_xxx/）
     ├── screenshots/
@@ -21,15 +21,13 @@
     └── 对话框监听
     ↓
 【录制中】捕获所有交互
-    ├── 事件 → 数据库
+    ├── 事件 → 内存（同时 WebSocket 实时推送）
     ├── 截图 → screenshots/
     └── 网络数据 → network/
     ↓
 用户点击"停止录制" 或 关闭浏览器
     ↓
-关闭浏览器
-    ↓
-从数据库导出所有数据
+停止采集并保存（停止录制不会主动关闭浏览器）
     ↓
 生成 session.json（格式化）
     ↓
@@ -260,10 +258,11 @@ backend/runs/session_20260120_143526_e5879545/
 
 ### 1. 实时存储（录制中）
 
-**数据库：** `backend/database/recorder.db`
-- 会话信息
-- 所有事件记录
-- 实时更新
+**会话状态：** 内存中累积
+- 会话信息（run_id/start_time/status/...）
+- 事件数组（events）
+- 网络事件（network_events）
+- 通过 WebSocket 实时推送到前端
 
 **截图：** `backend/runs/session_xxx/screenshots/`
 - 实时保存
@@ -277,7 +276,7 @@ backend/runs/session_20260120_143526_e5879545/
 ### 2. 最终存储（录制结束）
 
 **session.json：** `backend/runs/session_xxx/session.json`
-- 从数据库导出
+- 从内存聚合并一次性落盘
 - 格式化 JSON（2 空格缩进）
 - UTF-8 编码
 - 包含所有事件和会话信息
@@ -312,13 +311,13 @@ browser = await playwright.chromium.launch(
 **后端（Python）：**
 - 接收事件数据
 - 生成定位器
-- 保存到数据库
+- 保存到内存（最终落盘为 session.json）
 - 触发截图（如果需要）
 - 通过 WebSocket 推送到前端
 
 ### 3. WebSocket 实时通信
 
-**连接：** `ws://127.0.0.1:8000/ws/sessions/{session_id}`
+**连接：** `ws://127.0.0.1:8000/ws/sessions/{run_id}`
 
 **用途：**
 - 实时推送事件到前端
@@ -393,12 +392,12 @@ recorder:
 - 降低质量到 80-90
 - 定期清理旧截图
 
-### 2. 数据库性能
+### 2. 文件存储与内存
 
-**优化：**
-- 使用索引（session_id, seq）
-- 批量插入（如果需要）
-- 定期清理旧数据
+**说明：**
+- 录制过程中事件主要在内存累积
+- 停止录制或浏览器关闭时写入 `session.json`
+- 截图与大型网络 body 会实时写入文件系统（按配置）
 
 ### 3. 磁盘空间
 
@@ -447,5 +446,5 @@ A: 影响很小。主要开销在截图和网络监听。
 - `backend/config/browser.yaml` - 浏览器配置
 
 **数据文件：**
-- `backend/database/recorder.db` - SQLite 数据库
+- `backend/runs/<run_id>/session.json` - 会话 JSON（含事件）
 - `backend/runs/` - 会话文件夹

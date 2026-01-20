@@ -73,16 +73,10 @@ if not exist "backend\config\app.yaml" (
     exit /b 1
 )
 
-echo 检查数据库目录...
-if not exist "backend\database" (
-    mkdir backend\database
-    echo ✅ 创建数据库目录
-)
-
-echo 检查截图目录...
-if not exist "backend\screenshots" (
-    mkdir backend\screenshots
-    echo ✅ 创建截图目录
+echo 检查会话存储目录...
+if not exist "backend\runs" (
+    mkdir backend\runs
+    echo ✅ 创建 runs 目录
 )
 
 echo.

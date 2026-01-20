@@ -1,155 +1,100 @@
 # 配置说明
 
-所有配置文件位于 `backend/config/` 目录，使用 YAML 格式。
+所有配置文件位于 `backend/config/`，采用 YAML 格式。
 
-## 隐私模式
+## 1. Profiles（保存规范）
 
-在 `backend/config/recorder.yaml` 中配置：
+- 目录：`backend/config/profiles/`
+- 选项来源：所有 `*.yaml/*.yml` 文件都会出现在前端“保存规范”下拉框
+- 合并逻辑：profile 内容会覆盖到 `backend/config/recorder.yaml` 之上（未写的字段继承基座）
 
-### none - 保存所有数据（默认）
-
+profile 文件示例：
 ```yaml
+profile:
+  name: mbx_minimal
+  description: Gemini batchexecute 最小化网络录制
+
 recorder:
-  privacy_mode: none
+  default_urls:
+    - name: "空白页"
+      url: ""
+  screenshots:
+    enabled: false
+  network:
+    capture_mode: minimal
+    include_url_patterns:
+      - "^https://business\\.gemini\\.google/.*/data/batchexecute"
+  storage:
+    include_raw_data: false
 ```
 
-- 保存所有字段，包括密码、token 等敏感信息
+## 2. recorder.yaml（录制器基座配置）
 
-### partial - 部分脱敏
-
-```yaml
-recorder:
-  privacy_mode: partial
-```
-
-- 保留字段结构
-- 脱敏敏感字段（password、token、credit_card 等）
-- 保留字段长度和类型信息
-
-### strict - 严格脱敏
+### 截图配置
 
 ```yaml
 recorder:
-  privacy_mode: strict
-```
-
-- 完全排除敏感字段
-- 不保存任何可能包含敏感信息的数据
-
-## 截图配置
-
-在 `backend/config/recorder.yaml` 中配置：
-
-```yaml
-recorder:
-  screenshot:
-    enabled: true
-    event_types:
-      - click
-      - submit
+  screenshots:
+    enabled: false
+    on_events:
       - navigation
+      - click
+    quality: 90
 ```
 
-截图将保存到 `backend/screenshots/` 目录，文件名格式：
-```
-backend/screenshots/session_{session_id}_event_{seq}.png
-```
+截图会保存到：`backend/runs/<run_id>/screenshots/`，事件中记录相对路径 `screenshots/event_<seq>.png`。
 
-## 网络数据存储
-
-在 `backend/config/recorder.yaml` 中配置：
+### 网络采集配置
 
 ```yaml
 recorder:
   network:
     enabled: true
+    capture_mode: all       # all|minimal
+    include_url_patterns: [] # capture_mode=minimal 时启用
+    capture_request: true
+    capture_response: true
     capture_body: true
-    store_large_bodies: true
-    body_size_threshold: 1048576  # 1MB
+    max_body_size: 1048576
+    max_body_text_len: 0
+    store_bodies: false
 ```
 
-大型响应体将保存到 `backend/network/` 目录。
-
-## 定位器优先级
-
-在 `backend/config/locators.yaml` 中配置：
+### 预设（起始 URL / 窗口大小）
 
 ```yaml
-locators:
-  strategies:
-    - role
-    - label
-    - testid
-    - placeholder
-    - text
-    - css
-    - xpath
-  priorities:
-    role: high
-    label: high
-    testid: high
-    placeholder: medium
-    text: medium
-    css: low
-    xpath: low
+recorder:
+  default_urls:
+    - name: "空白页"
+      url: ""
+  window_sizes:
+    - name: "小窗口 (1280×720)"
+      width: 1280
+      height: 720
 ```
 
-## 浏览器配置
+注意：前端会根据所选 profile 调用 `GET /api/config/presets?profile=<name>` 加载预设。
 
-在 `backend/config/browser.yaml` 中配置：
+### 存储字段控制（保存内容规范）
 
 ```yaml
-browser:
-  default: chrome
-  paths:
-    chrome: null  # 使用系统默认路径
-    edge: null
-    firefox: null
-  launch:
-    timeout: 30000
-    slow_mo: 0
-    args: []
-  context:
-    viewport:
-      width: 1920
-      height: 1080
-    user_agent: null
-    locale: zh-CN
+recorder:
+  storage:
+    include_raw_data: true
+    include_network_data: true
+    include_locators: true
+    include_target_data: true
+    include_iframe_context: true
+    include_page_title: true
+    include_screenshot_path: true
 ```
 
-## 数据库配置
+## 3. browser.yaml（浏览器配置）
 
-在 `backend/config/database.yaml` 中配置：
+- 可配置浏览器可执行文件路径、启动参数
 
-```yaml
-database:
-  path: database/recorder.db
-  retention:
-    enabled: true
-    days: 30  # 保留 30 天
-```
+## 4. locators.yaml（定位器策略）
 
-## 应用配置
+- 可配置定位器策略优先级与开关
 
-在 `backend/config/app.yaml` 中配置：
-
-```yaml
-app:
-  debug: true
-  name: Web Session Recorder
-  version: 1.0.0
-
-server:
-  host: 127.0.0.1
-  port: 8000
-  reload: false  # Windows 上禁用
-  cors_origins:
-    - http://localhost:5173
-    - http://localhost:3000
-
-logging:
-  level: INFO  # DEBUG/INFO/WARNING/ERROR
-  file: logs/app.log
-  max_size: 10MB
-  backup_count: 5
-```
+**最后更新**：2026-01-20

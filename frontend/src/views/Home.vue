@@ -12,6 +12,24 @@
         :model="recordingConfig" 
         label-width="140px"
       >
+        <el-form-item label="保存规范">
+          <el-select
+            v-model="recordingConfig.profile"
+            placeholder="选择配置档"
+            style="width: 100%"
+            :disabled="isRecording"
+            filterable
+          >
+            <el-option
+              v-for="p in profiles"
+              :key="p.name"
+              :label="`${p.name} - ${p.description} (${p.source})`"
+              :value="p.name"
+            />
+          </el-select>
+          <div class="form-tip">录制前选择配置档，决定采集/保存内容规范</div>
+        </el-form-item>
+
         <el-form-item label="起始 URL">
           <el-select 
             v-model="selectedUrlPreset" 
@@ -24,7 +42,7 @@
           >
             <el-option
               v-for="preset in urlPresets"
-              :key="preset.url"
+              :key="`${preset.name}|${preset.url}`"
               :label="preset.name"
               :value="preset.url"
             />
@@ -153,6 +171,36 @@
         </el-form-item>
       </el-form>
 
+      <el-divider v-if="isRecording || recentEvents.length > 0" />
+
+      <!-- Live Events (WebSocket) -->
+      <div v-if="isRecording || recentEvents.length > 0" class="live-events">
+        <div class="live-header">
+          <h3>实时事件</h3>
+          <div class="live-meta">
+            <el-tag type="info">已接收 {{ liveEventCount }} 条</el-tag>
+            <el-button size="small" @click="clearLiveEvents">清空</el-button>
+          </div>
+        </div>
+
+        <el-table
+          :data="recentEvents"
+          size="small"
+          stripe
+          style="width: 100%"
+          max-height="300"
+        >
+          <el-table-column prop="seq" label="#" width="80" />
+          <el-table-column prop="event_type" label="类型" width="120" />
+          <el-table-column prop="timestamp" label="时间" width="200">
+            <template #default="{ row }">
+              {{ formatDateTime(row.timestamp) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="page_url" label="URL" min-width="240" show-overflow-tooltip />
+        </el-table>
+      </div>
+
 
     </el-card>
 
@@ -222,11 +270,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { ElMessage, ElNotification } from 'element-plus'
-import { VideoCamera, VideoPlay, VideoPause, Document, Download, View } from '@element-plus/icons-vue'
-import { sessionAPI } from '../api/session'
-import { configAPI } from '../api/config'
+ import { ref, onMounted, onUnmounted, watch } from 'vue'
+ import { ElMessage, ElNotification } from 'element-plus'
+ import { VideoCamera, VideoPlay, VideoPause, Document, View } from '@element-plus/icons-vue'
+ import { sessionAPI } from '../api/session'
+ import { configAPI } from '../api/config'
+ import { profilesAPI } from '../api/profiles'
 import { useSession } from '../composables/useSession'
 
 // Use session composables
@@ -244,31 +293,46 @@ const windowSizePresets = ref([])
 const selectedUrlPreset = ref('')
 const selectedWindowSize = ref('')
 const customSizeMode = ref(false)
+const profiles = ref([])
 
 // WebSocket connection
 let ws = null
+let wsKeepAliveTimer = null
+
+// Live events (from WebSocket)
+const liveEventCount = ref(0)
+const recentEvents = ref([])
+
+const clearLiveEvents = () => {
+  recentEvents.value = []
+  liveEventCount.value = 0
+}
 
 // Recording configuration
 const recordingConfig = ref({
-  url: 'https://www.baidu.com',
+  url: '',
   browser: 'chrome',
   incognito: false,
   user_data_dir: '',
+  profile: 'default',
   window_width: 1280,
   window_height: 720
 })
 
-// Load presets on mount
-onMounted(async () => {
+let suppressProfilePresetReload = true
+
+const loadRecorderPresets = async (profileName) => {
   try {
-    const response = await configAPI.getRecorderPresets()
+    const response = await configAPI.getRecorderPresets(profileName)
     urlPresets.value = response.data.default_urls
     windowSizePresets.value = response.data.window_sizes
     
     // Set default selections
     if (urlPresets.value.length > 0) {
-      selectedUrlPreset.value = urlPresets.value[0].url
-      recordingConfig.value.url = urlPresets.value[0].url
+      const blankPreset = urlPresets.value.find(preset => preset.url === '' || preset.url === null)
+      const defaultPreset = blankPreset || urlPresets.value[0]
+      selectedUrlPreset.value = defaultPreset.url
+      recordingConfig.value.url = defaultPreset.url
     }
     
     if (windowSizePresets.value.length > 0) {
@@ -278,13 +342,51 @@ onMounted(async () => {
         selectedWindowSize.value = `${defaultSize.width}x${defaultSize.height}`
         recordingConfig.value.window_width = defaultSize.width
         recordingConfig.value.window_height = defaultSize.height
+        customSizeMode.value = false
+      } else {
+        selectedWindowSize.value = 'custom'
+        customSizeMode.value = true
       }
     }
   } catch (error) {
     console.error('Failed to load presets:', error)
     ElMessage.warning('加载预设配置失败，使用默认值')
   }
+}
+
+// Load presets on mount
+onMounted(async () => {
+  suppressProfilePresetReload = true
+
+  // Load profiles
+  try {
+    const p = await profilesAPI.listProfiles()
+    profiles.value = p.data || []
+  } catch (e) {
+    profiles.value = [{ name: 'default', description: '通用全量（默认）', source: 'backend/config/profiles/default.yaml' }]
+  }
+
+  if (!profiles.value || profiles.value.length === 0) {
+    profiles.value = [{ name: 'default', description: '通用全量（默认）', source: 'backend/config/profiles/default.yaml' }]
+  }
+
+  // Choose initial profile (prefer "default")
+  const defaultProfile = profiles.value.find(p => p.name === 'default')
+  const initialProfile = defaultProfile ? defaultProfile.name : profiles.value[0].name
+  recordingConfig.value.profile = initialProfile
+
+  await loadRecorderPresets(initialProfile)
+  suppressProfilePresetReload = false
 })
+
+watch(
+  () => recordingConfig.value.profile,
+  async (newProfile, oldProfile) => {
+    if (suppressProfilePresetReload) return
+    if (!newProfile || newProfile === oldProfile) return
+    await loadRecorderPresets(newProfile)
+  }
+)
 
 // Handle URL preset change
 const onUrlPresetChange = (value) => {
@@ -356,10 +458,13 @@ const startRecording = async () => {
   isStarting.value = true
   
   try {
+    clearLiveEvents()
+
     // Prepare config (remove empty optional fields)
     const config = {
       browser: recordingConfig.value.browser,
       incognito: recordingConfig.value.incognito,
+      profile: recordingConfig.value.profile,
       window_width: recordingConfig.value.window_width,
       window_height: recordingConfig.value.window_height
     }
@@ -457,6 +562,10 @@ const stopRecording = async () => {
       ws.close()
       ws = null
     }
+    if (wsKeepAliveTimer) {
+      clearInterval(wsKeepAliveTimer)
+      wsKeepAliveTimer = null
+    }
     
     isRecording.value = false
     
@@ -506,11 +615,47 @@ const stopRecording = async () => {
 
 // Connect to WebSocket for status monitoring
 const connectWebSocket = (sessionId) => {
-  const wsUrl = `ws://127.0.0.1:8000/ws/sessions/${sessionId}`
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+  const wsUrl = `${protocol}://${window.location.host}/ws/sessions/${sessionId}`
   ws = new WebSocket(wsUrl)
   
   ws.onopen = () => {
     console.log('WebSocket connected')
+    if (wsKeepAliveTimer) {
+      clearInterval(wsKeepAliveTimer)
+    }
+    wsKeepAliveTimer = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }))
+      }
+    }, 5000)
+  }
+
+  ws.onmessage = (event) => {
+    try {
+      const msg = JSON.parse(event.data)
+
+      // Ignore control messages
+      if (msg.type === 'connection_established' || msg.type === 'pong' || msg.type === 'status') {
+        return
+      }
+
+      // SessionManager.stream_event payload
+      if (msg && typeof msg === 'object' && msg.event_type && typeof msg.seq === 'number') {
+        liveEventCount.value += 1
+        recentEvents.value.unshift({
+          seq: msg.seq,
+          timestamp: msg.timestamp,
+          event_type: msg.event_type,
+          page_url: msg.page_url || ''
+        })
+        if (recentEvents.value.length > 10) {
+          recentEvents.value = recentEvents.value.slice(0, 10)
+        }
+      }
+    } catch (e) {
+      // ignore non-JSON messages
+    }
   }
   
   ws.onerror = (error) => {
@@ -519,6 +664,10 @@ const connectWebSocket = (sessionId) => {
   
   ws.onclose = () => {
     console.log('WebSocket disconnected')
+    if (wsKeepAliveTimer) {
+      clearInterval(wsKeepAliveTimer)
+      wsKeepAliveTimer = null
+    }
     
     // Browser closed, check session status immediately
     if (isRecording.value && currentSessionId.value) {
@@ -548,6 +697,10 @@ onUnmounted(() => {
   if (ws) {
     ws.close()
     ws = null
+  }
+  if (wsKeepAliveTimer) {
+    clearInterval(wsKeepAliveTimer)
+    wsKeepAliveTimer = null
   }
 })
 </script>
@@ -709,5 +862,27 @@ onUnmounted(() => {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+.live-events {
+  margin-top: 8px;
+}
+
+.live-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.live-header h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.live-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 </style>

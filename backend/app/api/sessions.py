@@ -63,6 +63,7 @@ async def start_session(config: SessionConfig):
             browser_type=config.browser,
             incognito=config.incognito,
             user_data_dir=config.user_data_dir,
+            profile=config.profile,
             window_width=config.window_width,
             window_height=config.window_height
         )
@@ -110,9 +111,8 @@ async def stop_session(session_id: str):
     
     This endpoint:
     1. Stops event capture
-    2. Closes the browser
-    3. Saves the session to file
-    4. Closes WebSocket connections
+    2. Saves the session to file
+    3. Closes WebSocket connections (browser may remain open)
     
     Args:
         session_id: Run ID of the session to stop
@@ -372,10 +372,41 @@ async def get_session_events(
         start = (page - 1) * page_size
         end = start + page_size
         paginated_events = events[start:end]
+
+        # Make screenshot paths accessible via backend static mount
+        public_events = []
+        for event in paginated_events:
+            if isinstance(event, dict):
+                event_copy = event.copy()
+                screenshot_path = event_copy.get("screenshot_path")
+                if screenshot_path and isinstance(screenshot_path, str):
+                    # Stored as "screenshots/event_1.png" inside runs/<run_id>/...
+                    if not screenshot_path.startswith("/runs/"):
+                        event_copy["screenshot_path"] = f"/runs/{session_id}/{screenshot_path.lstrip('/')}"
+
+                network_data = event_copy.get("network_data")
+                if isinstance(network_data, dict):
+                    for part_key in ("request", "response"):
+                        part = network_data.get(part_key)
+                        if not isinstance(part, dict):
+                            continue
+                        body_file = part.get("body_file")
+                        if (
+                            isinstance(body_file, str)
+                            and body_file
+                            and not body_file.startswith("/runs/")
+                            and not body_file.startswith("/")
+                            and not body_file.startswith("\\\\")
+                            and ":" not in body_file[:3]
+                        ):
+                            part["body_file"] = f"/runs/{session_id}/{body_file.lstrip('/')}"
+                public_events.append(event_copy)
+            else:
+                public_events.append(event)
         
         from app.api.schemas import EventResponse
         return EventListResponse(
-            events=[EventResponse(**e) for e in paginated_events],
+            events=[EventResponse(**e) for e in public_events],
             total=total,
             page=page,
             page_size=page_size

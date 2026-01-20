@@ -1,32 +1,39 @@
 locators:
   max_locators_per_event: 5
   strategies:
-  - enabled: true
-    name: role
-    priority: 1
-    stability: high
-  - enabled: true
-    name: label
-    priority: 2
-    stability: high
-  - enabled: true
-    name: data_testid
-    priority: 3
-    stability: high
-  - enabled: true
-    name: placeholder
-    priority: 4
-    stability: medium
-  - enabled: true
-    name: text
-    priority: 5
-    stability: medium
-  - enabled: true
-    name: css
-    priority: 6
-    stability: low
-  - enabled: true
-    name: xpath
-    priority: 7
-    stability: low
+    -
+      enabled: true
+      name: "role"
+      priority: 1
+      stability: "high"
+    -
+      enabled: true
+      name: "label"
+      priority: 2
+      stability: "high"
+    -
+      enabled: true
+      name: "data_testid"
+      priority: 3
+      stability: "high"
+    -
+      enabled: true
+      name: "placeholder"
+      priority: 4
+      stability: "medium"
+    -
+      enabled: true
+      name: "text"
+      priority: 5
+      stability: "medium"
+    -
+      enabled: true
+      name: "css"
+      priority: 6
+      stability: "low"
+    -
+      enabled: true
+      name: "xpath"
+      priority: 7
+      stability: "low"
   validate_uniqueness: true

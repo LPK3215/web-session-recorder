@@ -1,138 +1,53 @@
 # 常见问题
 
-## Q1: 浏览器启动失败
+## Q1：浏览器启动失败
 
-**问题**：点击"开始录制"后浏览器无法启动
-
-**解决方案**：
+排查步骤：
 1. 确保已运行 `playwright install`
-2. 检查 `backend/config/browser.yaml` 中的浏览器路径
-3. 尝试使用不同的浏览器类型
-4. 查看后端日志获取详细错误信息
+2. 检查 `backend/config/browser.yaml` 中的浏览器路径（如需指定）
+3. 尝试切换浏览器类型（chrome/edge/firefox）
+4. 查看后端日志输出
 
-## Q2: 无法连接到后端
+## Q2：前端提示无法连接后端
 
-**问题**：前端显示"无法连接到后端服务器"
+1. 确保后端运行在 `http://127.0.0.1:8000`
+2. 检查 `backend/config/app.yaml` 的 CORS 配置
 
-**解决方案**：
-1. 确保后端正在运行（`http://127.0.0.1:8000`）
-2. 检查 `backend/config/app.yaml` 中的 CORS 配置
-3. 确认防火墙没有阻止端口 8000
+## Q3：实时事件不显示（WebSocket）
 
-## Q3: WebSocket 连接失败
+1. 打开浏览器开发者工具，查看 Console 是否有 ws 报错
+2. 确认后端 WebSocket 端点可达：`ws://127.0.0.1:8000/ws/sessions/<run_id>`
 
-**问题**：实时事件不显示
+## Q4：点击“停止录制”后浏览器没关闭
 
-**解决方案**：
-1. 检查浏览器控制台的 WebSocket 错误
-2. 确认后端 WebSocket 端点正常
-3. 检查网络代理设置
+这是设计行为：**停止录制只会停止采集并保存，不会主动关闭浏览器**。
 
-## Q4: 事件捕获不完整
+如果你关闭浏览器/页面，系统会自动停止录制并保存。
 
-**问题**：某些操作没有被记录
+## Q5：截图不显示 / 详情页看不到图片
 
-**解决方案**：
-1. 检查 `backend/config/recorder.yaml` 中的事件类型配置
-2. 某些动态加载的内容可能需要等待
-3. iframe 内的事件需要确保脚本注入成功
-
-## Q5: 数据库错误
-
-**问题**：数据库锁定或损坏
-
-**解决方案**：
-```bash
-# 备份数据库
-cp backend/database/recorder.db backend/database/recorder.db.backup
-
-# 检查数据库完整性
-sqlite3 backend/database/recorder.db "PRAGMA integrity_check;"
-
-# 如果损坏，删除并重新创建
-rm backend/database/recorder.db
-# 重启后端会自动创建新数据库
+1. 确认开启截图：
+```yaml
+recorder:
+  screenshots:
+    enabled: true
+    on_events: [navigation, click]
 ```
+2. 确认后端静态挂载正常：访问 `http://127.0.0.1:8000/runs/`（应能列目录/返回 404 以外的静态响应）
+3. 事件接口会把截图路径转换成 `/runs/<run_id>/...`，前端用该 URL 直接展示
 
-## Q6: Windows 兼容性问题
+## Q6：incognito / user_data_dir 没效果
 
-**问题**：在 Windows 上出现 `NotImplementedError`
+- `incognito=true`：使用临时上下文（不会复用用户数据目录）
+- `incognito=false + user_data_dir`：使用持久化上下文（可保留登录态）
 
-**解决方案**：
-- 已在代码中修复，设置了 `WindowsProactorEventLoopPolicy`
-- 确保 `backend/config/app.yaml` 中 `reload: false`
-- 修改代码后需要手动重启服务器
+## 性能建议：网络 body 太大
 
-## Q7: 截图功能不工作
-
-**问题**：启用截图后没有生成截图文件
-
-**解决方案**：
-1. 确保 `backend/screenshots/` 目录存在且可写
-2. 检查 `backend/config/recorder.yaml` 中的截图配置
-3. 确认事件类型在配置的截图列表中
-
-## 调试技巧
-
-### 后端调试
-
-```bash
-# 启用详细日志
-cd backend
-python run.py  # 查看控制台输出
-```
-
-### 前端调试
-
-- 使用浏览器开发者工具
-- 查看 Network 标签页的 WebSocket 连接
-- 查看 Console 标签页的日志
-
-### 数据库查看
-
-```bash
-sqlite3 backend/database/recorder.db
-.tables
-SELECT * FROM sessions;
-SELECT * FROM events WHERE session_id = 1;
-```
-
-## 性能优化
-
-### 数据库优化
-
-**定期清理旧数据**：
-```sql
--- 删除 30 天前的会话
-DELETE FROM sessions WHERE start_time < datetime('now', '-30 days');
-
--- 清理孤立事件
-DELETE FROM events WHERE session_id NOT IN (SELECT id FROM sessions);
-
--- 重建索引
-REINDEX;
-
--- 优化数据库
-VACUUM;
-```
-
-### 网络数据优化
-
-**限制响应体大小**（`backend/config/recorder.yaml`）：
+在 profile 或 `backend/config/recorder.yaml` 中开启截断：
 ```yaml
 recorder:
   network:
-    body_size_threshold: 1048576  # 1MB
-    max_body_size: 10485760       # 10MB
+    max_body_text_len: 200000
 ```
 
-### 前端性能
-
-**分页加载事件**：
-```javascript
-// 默认每页 100 个事件
-const events = await sessionAPI.getSessionEvents(sessionId, {
-  page: 1,
-  page_size: 100
-})
-```
+**最后更新**：2026-01-20

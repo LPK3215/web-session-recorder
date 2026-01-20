@@ -13,6 +13,7 @@ from app.core.event_capturer import EventCapturer
 from app.core.network_monitor import NetworkMonitor
 from app.core.locators import LocatorGenerator
 from app.core.storage_manager import StorageManager
+from app.core.profile_manager import profile_manager
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class SessionManager:
         browser_type: str = "chrome",
         incognito: bool = False,
         user_data_dir: Optional[str] = None,
+        profile: Optional[str] = "default",
         window_width: Optional[int] = None,
         window_height: Optional[int] = None
     ) -> Dict[str, Any]:
@@ -64,6 +66,7 @@ class SessionManager:
             # Create session data
             session_data = {
                 'run_id': run_id,
+                'profile': profile or "default",
                 'start_url': url,
                 'start_time': datetime.now().isoformat(),
                 'status': 'created',
@@ -84,6 +87,7 @@ class SessionManager:
                 'event_capturer': None,
                 'network_monitor': None,
                 'status': 'created',
+                'profile': profile or "default",
                 'window_width': window_width,
                 'window_height': window_height,
                 'session_folder': session_folder
@@ -115,12 +119,15 @@ class SessionManager:
             
             session_state = self.active_sessions[run_id]
             session_data = session_state['session_data']
+
+            recorder_config = profile_manager.load_recorder_config(session_state.get('profile') or "default")
+            session_state['recorder_config'] = recorder_config
             
             # Initialize components
             browser_controller = BrowserController()
             locator_generator = LocatorGenerator()
-            event_capturer = EventCapturer(locator_generator)
-            network_monitor = NetworkMonitor()
+            event_capturer = EventCapturer(locator_generator, recorder_config=recorder_config)
+            network_monitor = NetworkMonitor(recorder_config=recorder_config)
             
             # Set up event callback
             event_capturer.set_event_callback(
@@ -132,12 +139,16 @@ class SessionManager:
             if session_folder:
                 screenshot_folder = session_folder / 'screenshots'
                 event_capturer.set_session_folder(run_id, screenshot_folder)
+                network_folder = session_folder / 'network'
+                network_monitor.set_session_folder(run_id, network_folder)
             
             # Launch browser
             await browser_controller.launch_browser(
                 browser_type=session_data['browser_type'],
                 headless=False,
                 use_local=True,
+                incognito=session_data['incognito'],
+                user_data_dir=session_data['user_data_dir'],
                 window_width=session_state.get('window_width'),
                 window_height=session_state.get('window_height')
             )
@@ -192,6 +203,7 @@ class SessionManager:
             # Update session data
             session_data['status'] = 'started'
             session_data['start_time'] = datetime.now().isoformat()
+            session_data['profile'] = session_state.get('profile') or "default"
             
             logger.info(f"Started recording for session {run_id}")
             
@@ -208,9 +220,8 @@ class SessionManager:
         
         This method:
         1. Stops event capture
-        2. Closes the browser
-        3. Saves the session to file
-        4. Cleans up resources
+        2. Saves the session to file
+        3. Cleans up recording resources (browser may remain open)
         
         Args:
             run_id: Run ID of the session to stop
@@ -235,7 +246,21 @@ class SessionManager:
             
             session_state = self.active_sessions[run_id]
             session_data = session_state['session_data']
-            browser_controller = session_state.get('browser_controller')
+            event_capturer = session_state.get('event_capturer')
+            network_monitor = session_state.get('network_monitor')
+
+            # Disable capturing immediately (browser/page may remain open)
+            try:
+                if event_capturer:
+                    event_capturer.disable()
+            except Exception:
+                pass
+
+            try:
+                if network_monitor:
+                    network_monitor.disable()
+            except Exception:
+                pass
             
             # 不再关闭浏览器，只停止录制
             # 浏览器关闭由用户手动操作
@@ -259,10 +284,16 @@ class SessionManager:
                         event['timestamp'] = event['timestamp'].isoformat()
 
             # Save session to file
+            recorder_config = session_state.get('recorder_config')
+            session_data, filtered_events = self._apply_storage_profile(
+                session_data=session_data,
+                events=session_data.get('events', []),
+                recorder_config=recorder_config
+            )
             self.storage_manager.save_session_json(
                 run_id=run_id,
                 session_data=session_data,
-                events=session_data.get('events', [])
+                events=filtered_events
             )
             
             # Clean up session state
@@ -306,10 +337,29 @@ class SessionManager:
             
             session_state = self.active_sessions[run_id]
             session_data = session_state['session_data']
+
+            # Disable capturing immediately (browser is closing/closed)
+            try:
+                event_capturer = session_state.get('event_capturer')
+                if event_capturer:
+                    event_capturer.disable()
+            except Exception:
+                pass
+
+            try:
+                network_monitor = session_state.get('network_monitor')
+                if network_monitor:
+                    network_monitor.disable()
+            except Exception:
+                pass
             
             # Update session data immediately
             session_data['status'] = 'stopped'
             session_data['end_time'] = datetime.now().isoformat()
+
+            # Add network events to session data (if any)
+            if 'network_events' in session_state:
+                session_data['network_events'] = session_state['network_events']
             
             # Convert all datetime objects in events to strings
             if 'events' in session_data:
@@ -318,10 +368,16 @@ class SessionManager:
                         event['timestamp'] = event['timestamp'].isoformat()
             
             # Save session data
+            recorder_config = session_state.get('recorder_config')
+            session_data, filtered_events = self._apply_storage_profile(
+                session_data=session_data,
+                events=session_data.get('events', []),
+                recorder_config=recorder_config
+            )
             self.storage_manager.save_session_json(
                 run_id=run_id,
                 session_data=session_data,
-                events=session_data.get('events', [])
+                events=filtered_events
             )
             
             # Close WebSocket connections immediately to notify frontend
@@ -361,7 +417,6 @@ class SessionManager:
         """
         try:
             if run_id not in self.active_sessions:
-                logger.warning(f"Session {run_id} not found for event")
                 return
             
             session_state = self.active_sessions[run_id]
@@ -398,18 +453,28 @@ class SessionManager:
         try:
             if run_id not in self.websocket_connections:
                 return
-            
+
+            session_state = self.active_sessions.get(run_id, {})
+            recorder_config = session_state.get('recorder_config')
+            _, filtered_events = self._apply_storage_profile({}, [event], recorder_config)
+            filtered_event = filtered_events[0] if filtered_events else {}
+
             # Convert event to JSON-serializable format
             event_data = {
                 'run_id': run_id,
-                'seq': event.get('seq'),
-                'timestamp': event.get('timestamp'),
-                'event_type': event.get('event_type'),
-                'page_url': event.get('page_url'),
-                'page_title': event.get('page_title'),
-                'target_data': event.get('target_data'),
-                'locators': event.get('locators'),
-                'network_data': event.get('network_data')
+                'seq': filtered_event.get('seq'),
+                'timestamp': filtered_event.get('timestamp'),
+                'event_type': filtered_event.get('event_type'),
+                'page_url': filtered_event.get('page_url'),
+                'page_title': filtered_event.get('page_title'),
+                'target_data': filtered_event.get('target_data'),
+                'locators': filtered_event.get('locators'),
+                'network_data': filtered_event.get('network_data'),
+                'screenshot_path': (
+                    f"/runs/{run_id}/{filtered_event.get('screenshot_path').lstrip('/')}"
+                    if isinstance(filtered_event.get('screenshot_path'), str) and filtered_event.get('screenshot_path')
+                    else None
+                )
             }
             
             # Send to all connected clients
@@ -469,19 +534,70 @@ class SessionManager:
         # Get all session run_ids
         all_run_ids = self.storage_manager.list_sessions()
         
-        # Load session data
-        sessions = []
+        def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+            if not value or not isinstance(value, str):
+                return None
+            try:
+                return datetime.fromisoformat(value)
+            except Exception:
+                return None
+
+        def _parse_iso_date(value: Optional[str]):
+            if not value or not isinstance(value, str):
+                return None
+            try:
+                return datetime.fromisoformat(value).date()
+            except Exception:
+                try:
+                    return datetime.strptime(value, "%Y-%m-%d").date()
+                except Exception:
+                    return None
+
+        sessions: List[Dict[str, Any]] = []
         for run_id in all_run_ids:
             session_data = self.get_session(run_id)
-            if session_data:
-                # Apply filters
-                if filters:
-                    if 'status' in filters and session_data.get('status') != filters['status']:
+            if not session_data:
+                continue
+
+            if filters:
+                # status / browser_type exact match
+                if filters.get('status') and session_data.get('status') != filters['status']:
+                    continue
+                if filters.get('browser_type') and session_data.get('browser_type') != filters['browser_type']:
+                    continue
+
+                # url contains
+                if filters.get('url'):
+                    start_url = (session_data.get('start_url') or '')
+                    if filters['url'] not in start_url:
                         continue
-                    if 'browser_type' in filters and session_data.get('browser_type') != filters['browser_type']:
+
+                # search in run_id or url (case-insensitive)
+                if filters.get('search'):
+                    needle = str(filters['search']).lower()
+                    hay_run_id = str(session_data.get('run_id', '')).lower()
+                    hay_url = str(session_data.get('start_url', '')).lower()
+                    if needle not in hay_run_id and needle not in hay_url:
                         continue
-                
-                sessions.append(session_data)
+
+                # date range filter on start_time
+                start_dt = _parse_iso_datetime(session_data.get('start_time'))
+                start_d = start_dt.date() if start_dt else None
+                start_date = _parse_iso_date(filters.get('start_date'))
+                end_date = _parse_iso_date(filters.get('end_date'))
+                if start_date and (not start_d or start_d < start_date):
+                    continue
+                if end_date and (not start_d or start_d > end_date):
+                    continue
+
+                # tags: any match
+                if filters.get('tags'):
+                    desired = set(filters['tags']) if isinstance(filters['tags'], list) else set()
+                    existing = set(session_data.get('tags', []) or [])
+                    if desired and desired.isdisjoint(existing):
+                        continue
+
+            sessions.append(session_data)
         
         total = len(sessions)
         
@@ -544,3 +660,63 @@ class SessionManager:
             1 for state in self.active_sessions.values()
             if state['status'] == 'recording'
         )
+
+    def _apply_storage_profile(
+        self,
+        session_data: Dict[str, Any],
+        events: List[Dict[str, Any]],
+        recorder_config: Optional[Dict[str, Any]] = None
+    ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+        """
+        Apply per-profile storage rules to session/events before saving or streaming.
+
+        Rules are read from `recorder.storage.*` in the effective recorder config.
+        Missing rules mean "include everything" (backwards-compatible).
+        """
+        if not recorder_config or not isinstance(recorder_config, dict):
+            return session_data, events
+
+        recorder = recorder_config.get('recorder', {}) if isinstance(recorder_config.get('recorder'), dict) else {}
+        storage = recorder.get('storage', {}) if isinstance(recorder.get('storage'), dict) else {}
+
+        def enabled(key: str, default: bool = True) -> bool:
+            value = storage.get(key, default)
+            return bool(value)
+
+        include_raw_data = enabled('include_raw_data', True)
+        include_network_data = enabled('include_network_data', True)
+        include_locators = enabled('include_locators', True)
+        include_target_data = enabled('include_target_data', True)
+        include_iframe_context = enabled('include_iframe_context', True)
+        include_page_title = enabled('include_page_title', True)
+        include_screenshot_path = enabled('include_screenshot_path', True)
+
+        filtered_events: List[Dict[str, Any]] = []
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            ev = dict(event)
+
+            if not include_raw_data:
+                ev.pop('raw_data', None)
+            if not include_network_data:
+                ev.pop('network_data', None)
+            if not include_locators:
+                ev.pop('locators', None)
+            if not include_target_data:
+                ev.pop('target_data', None)
+            if not include_iframe_context:
+                ev.pop('iframe_context', None)
+            if not include_page_title:
+                ev.pop('page_title', None)
+            if not include_screenshot_path:
+                ev.pop('screenshot_path', None)
+
+            filtered_events.append(ev)
+
+        # Also drop session-level network_events if desired
+        if not include_network_data and isinstance(session_data, dict):
+            session_data = dict(session_data)
+            session_data.pop('network_events', None)
+
+        return session_data, filtered_events

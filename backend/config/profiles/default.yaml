@@ -1,0 +1,5 @@
+profile:
+  name: default
+  description: 通用全量录制（默认）
+
+# 不写任何 recorder 覆盖项时，将完整继承 backend/config/recorder.yaml

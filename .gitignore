@@ -43,18 +43,16 @@ yarn-error.log*
 frontend/dist/
 frontend/.vite/
 
-# Database
-database/*.db
-database/*.db-journal
+# Pytest
+.pytest_cache/
 
 # Logs
 logs/
 *.log
 
-# Output directories
-runs/
-screenshots/
-network/
+# Output directories (runtime artifacts)
+backend/runs/
+backend/logs/
 
 # OS
 .DS_Store

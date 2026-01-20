@@ -14,7 +14,8 @@ export const configAPI = {
   },
   
   // Get recorder presets (default URLs and window sizes)
-  getRecorderPresets() {
-    return axios.get(`${API_BASE}/config/presets`)
+  getRecorderPresets(profile) {
+    const params = profile ? { profile } : {}
+    return axios.get(`${API_BASE}/config/presets`, { params })
   }
 }

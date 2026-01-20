@@ -166,13 +166,11 @@ python backend/scripts/manage_sessions.py
 - 重要会话可以导出备份
 - 监控 `runs/` 文件夹大小
 
-## 迁移说明
+## 静态访问（截图/资源）
 
-### 从旧版本（数据库版本）迁移
+后端会把 `backend/runs/` 挂载到 `/runs`，因此截图等文件可直接通过 HTTP 访问：
 
-如果你之前使用的是数据库版本，数据已经自动保存在 `runs/` 文件夹中的 `session.json` 文件里。
-
-旧的数据库文件（`database/recorder.db`）已被删除，但所有数据都已保存在文件系统中。
+- `http://127.0.0.1:8000/runs/<run_id>/screenshots/event_1.png`
 
 ### 备份数据
 

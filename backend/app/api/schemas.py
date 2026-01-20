@@ -12,6 +12,7 @@ class SessionConfig(BaseModel):
     user_data_dir: Optional[str] = Field(None, description="Path to user data directory (optional)")
     window_width: Optional[int] = Field(None, description="Browser window width (optional, default: 1920)")
     window_height: Optional[int] = Field(None, description="Browser window height (optional, default: 1080)")
+    profile: Optional[str] = Field("default", description="Recording profile name (from backend/config/profiles/*.yaml)")
 
 
 class SessionStartResponse(BaseModel):
@@ -68,6 +69,8 @@ class EventResponse(BaseModel):
     locators: Optional[List[Dict[str, Any]]] = None
     network_data: Optional[Dict[str, Any]] = None
     screenshot_path: Optional[str] = None
+    iframe_context: Optional[Dict[str, Any]] = None
+    raw_data: Optional[Dict[str, Any]] = None
 
 
 class EventListResponse(BaseModel):

@@ -1,163 +1,88 @@
 # API 文档
 
-## REST API 端点
+后端默认地址：`http://127.0.0.1:8000`
 
-### 会话管理
+## REST API
 
-#### POST /api/sessions/start - 开始录制
+### Profiles（保存规范）
 
-**请求**：
+#### GET /api/profiles
+
+返回可选的 profile 列表（来自 `backend/config/profiles/*.yaml`）：
+```json
+[
+  { "name": "default", "description": "通用全量录制（默认）", "source": "backend/config/profiles/default.yaml" }
+]
+```
+
+### 配置
+
+#### GET /api/config
+
+返回加载后的配置（app/browser/recorder/locators）。
+
+#### GET /api/config/presets?profile=<name>
+
+返回“起始 URL / 窗口大小”预设，且会随 profile 变化。
+
+### 会话
+
+#### POST /api/sessions/start
+
+请求：
 ```json
 {
-  "url": "https://example.com",  // 可选
-  "browser": "chrome",            // chrome/edge/firefox
-  "incognito": false,             // 是否隐身模式
-  "user_data_dir": null           // 用户数据目录（可选）
+  "url": "",
+  "browser": "chrome",
+  "incognito": false,
+  "user_data_dir": null,
+  "window_width": 1280,
+  "window_height": 720,
+  "profile": "default"
 }
 ```
 
-**响应**：
+响应（`session_id` 与 `run_id` 相同）：
 ```json
 {
-  "session_id": 1,
+  "session_id": "session_20260120_031711_e8c876ae",
   "run_id": "session_20260120_031711_e8c876ae",
   "status": "started"
 }
 ```
 
-#### POST /api/sessions/{id}/stop - 停止录制
+#### POST /api/sessions/{run_id}/stop
 
-**响应**：
-```json
-{
-  "session_id": 1,
-  "run_id": "session_20260120_031711_e8c876ae",
-  "status": "stopped",
-  "event_count": 42
-}
-```
+停止采集并保存（不会主动关闭浏览器）。
 
-#### GET /api/sessions - 获取会话列表
+#### GET /api/sessions
 
-**查询参数**：
-- `page`: 页码（默认 1）
-- `page_size`: 每页数量（默认 20）
-- `status`: 状态筛选（started/stopped/error）
-- `browser_type`: 浏览器筛选（chrome/edge/firefox）
+获取会话列表（支持分页与筛选）。
 
-#### GET /api/sessions/{id} - 获取会话详情
+#### GET /api/sessions/{run_id}
 
-**响应**：
-```json
-{
-  "id": 1,
-  "run_id": "session_20260120_031711_e8c876ae",
-  "start_url": "https://example.com",
-  "start_time": "2026-01-20T03:17:11",
-  "end_time": "2026-01-20T03:20:30",
-  "status": "stopped",
-  "browser_type": "chrome",
-  "incognito": false,
-  "event_count": 42
-}
-```
+获取单个会话元数据。
 
-#### GET /api/sessions/{id}/events - 获取会话事件
+#### GET /api/sessions/{run_id}/events
 
-**查询参数**：
-- `page`: 页码（默认 1）
-- `page_size`: 每页数量（默认 100）
+获取事件列表（事件中的 `screenshot_path` 会被转换为可直接访问的 URL：`/runs/<run_id>/...`）。
 
-### 配置管理
+#### GET /api/sessions/{run_id}/export
 
-#### GET /api/config - 获取所有配置
+导出 `session.json`（原始保存内容）。
 
-**响应**：
-```json
-{
-  "app": { /* app.yaml 内容 */ },
-  "browser": { /* browser.yaml 内容 */ },
-  "recorder": { /* recorder.yaml 内容 */ },
-  "database": { /* database.yaml 内容 */ },
-  "locators": { /* locators.yaml 内容 */ }
-}
-```
+## WebSocket
 
-#### PUT /api/config - 更新配置
+### WS /ws/sessions/{run_id}
 
-**请求**：
-```json
-{
-  "file": "recorder",  // app/browser/recorder/database/locators
-  "content": "privacy_mode: partial\n..."  // YAML 内容
-}
-```
-
-**响应**：
-```json
-{
-  "status": "success",
-  "message": "Configuration updated successfully"
-}
-```
-
-## WebSocket 端点
-
-### WS /ws/sessions/{id} - 实时事件流
-
-连接后会实时接收事件：
-
-```json
-{
-  "id": 1,
-  "session_id": 1,
-  "seq": 1,
-  "timestamp": "2026-01-20T03:17:15",
-  "event_type": "click",
-  "page_url": "https://example.com",
-  "page_title": "Example Domain",
-  "target_data": {
-    "tag": "button",
-    "id": "submit-btn",
-    "text": "Submit"
-  },
-  "locators": [
-    {
-      "strategy": "role",
-      "selector": "getByRole('button', { name: 'Submit' })"
-    },
-    {
-      "strategy": "testid",
-      "selector": "getByTestId('submit-btn')"
-    }
-  ],
-  "network_data": null,
-  "raw_data": { /* 原始事件数据 */ }
-}
-```
+实时事件流（用于首页“实时事件”表格）。
 
 ## 健康检查
 
-### GET /health - 健康检查
+### GET /health
 
 ```json
-{
-  "status": "healthy"
-}
+{ "status": "healthy" }
 ```
 
-### GET / - API 信息
-
-```json
-{
-  "name": "Web Session Recorder",
-  "version": "1.0.0",
-  "status": "running"
-}
-```
-
-## Swagger 文档
-
-启动后端后访问：`http://127.0.0.1:8000/docs`
-
-可以在 Swagger UI 中测试所有 API 端点。
+**最后更新**：2026-01-20

@@ -17,12 +17,17 @@ logger = logging.getLogger(__name__)
 class EventCapturer:
     """Capture browser events and generate locators."""
     
-    def __init__(self, locator_generator: Optional[LocatorGenerator] = None):
+    def __init__(
+        self,
+        locator_generator: Optional[LocatorGenerator] = None,
+        recorder_config: Optional[Dict[str, Any]] = None
+    ):
         """
         Initialize Event Capturer.
         
         Args:
             locator_generator: LocatorGenerator instance (creates new if None)
+            recorder_config: Effective recorder config dict (same shape as recorder.yaml)
         """
         self.locator_generator = locator_generator or LocatorGenerator()
         self.event_callback: Optional[Callable] = None
@@ -31,11 +36,35 @@ class EventCapturer:
         self.session_id: Optional[int] = None
         self.run_id: Optional[str] = None
         self.screenshot_folder: Optional[Path] = None
+        self.enabled: bool = True
+        self._recorder_config = recorder_config or {}
         
         # Load screenshot configuration
-        self.screenshot_enabled = config.get('recorder', 'recorder.screenshots.enabled', True)  # Enable by default
-        self.screenshot_on_events = config.get('recorder', 'recorder.screenshots.on_events', ['navigation', 'click'])
-        self.screenshot_quality = config.get('recorder', 'recorder.screenshots.quality', 80)
+        self.screenshot_enabled = self._cfg_get('recorder.screenshots.enabled', True)  # Enable by default
+        self.screenshot_on_events = self._cfg_get('recorder.screenshots.on_events', ['navigation', 'click'])
+        self.screenshot_quality = self._cfg_get('recorder.screenshots.quality', 80)
+        self.privacy_mode = self._cfg_get('recorder.privacy_mode', 'none')
+
+    def _cfg_get(self, key_path: str, default: Any = None) -> Any:
+        """Read from per-session recorder_config with fallback to global config."""
+        # recorder_config has top-level `recorder:` key (same as recorder.yaml)
+        try:
+            parts = key_path.split('.')
+            value: Any = self._recorder_config
+            for part in parts:
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                else:
+                    raise KeyError(part)
+            return value
+        except Exception:
+            return config.get('recorder', key_path, default)
+
+    def disable(self) -> None:
+        """Disable capturing (used when user stops recording but keeps the browser open)."""
+        self.enabled = False
+        self.event_callback = None
+        logger.info("Event capturing disabled")
     
     def set_session_id(self, session_id: int) -> None:
         """
@@ -227,6 +256,9 @@ class EventCapturer:
             event_data: Event data from JavaScript including iframe context
         """
         try:
+            if not self.enabled:
+                return
+
             # Increment sequence counter
             self.seq_counter += 1
             
@@ -270,9 +302,8 @@ class EventCapturer:
             }
             
             # Apply privacy filtering if needed
-            privacy_mode = config.get('recorder', 'recorder.privacy_mode', 'none')
-            if privacy_mode != 'none':
-                event = self._apply_privacy_filter(event, privacy_mode)
+            if self.privacy_mode != 'none':
+                event = self._apply_privacy_filter(event, self.privacy_mode)
             
             # Call event callback
             if self.event_callback:
@@ -295,6 +326,9 @@ class EventCapturer:
             url: New URL after navigation
         """
         try:
+            if not self.enabled:
+                return
+
             # Increment sequence counter
             self.seq_counter += 1
             
@@ -341,6 +375,9 @@ class EventCapturer:
             dialog: Dialog object
         """
         try:
+            if not self.enabled:
+                return
+
             # Increment sequence counter
             self.seq_counter += 1
             
@@ -389,6 +426,9 @@ class EventCapturer:
             download: Download object
         """
         try:
+            if not self.enabled:
+                return
+
             # Increment sequence counter
             self.seq_counter += 1
             

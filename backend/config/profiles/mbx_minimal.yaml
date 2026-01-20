@@ -1,0 +1,39 @@
+profile:
+  name: mbx_minimal
+  description: Gemini batchexecute 最小化网络录制
+
+recorder:
+  # 网址预设（针对 Gemini）
+  default_urls:
+    - name: "空白页"
+      url: ''
+    - name: "Gemini Business"
+      url: https://business.gemini.google.com/
+
+  # 网络抓取：仅抓特定接口（batchexecute + list-sessions）
+  network:
+    enabled: true
+    capture_mode: minimal
+    include_url_patterns:
+      - '^https://business\\.gemini\\.google/.*/data/batchexecute'
+      - '^https://auth\\.business\\.gemini\\.google/.*/list-sessions'
+    capture_request: true
+    capture_response: true
+    capture_body: true
+    max_body_size: 1048576
+    max_body_text_len: 200000
+    store_bodies: false
+
+  # 截图：最小化模式默认关闭
+  screenshots:
+    enabled: false
+
+  # 存储：最小化保存（偏网络）
+  storage:
+    include_raw_data: false
+    include_network_data: true
+    include_locators: false
+    include_target_data: false
+    include_iframe_context: false
+    include_page_title: true
+    include_screenshot_path: false

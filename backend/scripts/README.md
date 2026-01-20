@@ -7,10 +7,11 @@
 | 脚本 | 功能 | 说明 |
 |------|------|------|
 | `setup.bat` | 安装依赖 | 安装后端和前端的所有依赖 |
-| `test.bat` | 运行测试 | 执行后端和前端的所有测试 |
+| `test.bat` | 运行检查 | 后端 smoke 检查 + 前端 build |
 | `deploy.bat` | 部署构建 | 构建生产版本到 dist 目录 |
 | `clean.bat` | 清理项目 | 删除依赖、缓存和构建文件 |
 | `manage_sessions.py` | 管理会话 | 查看、清理和导出会话数据 |
+| `smoke_test.py` | 后端检查 | 导入 + FastAPI TestClient 请求关键接口 |
 
 ## 🚀 使用方法
 
@@ -72,11 +73,11 @@ clean.bat
 - 依赖更新后
 - 清理后重新安装
 
-### test.bat - 运行测试
+### test.bat - 运行检查
 
-运行所有测试：
-- 后端测试（pytest）- 162 个测试
-- 前端测试（npm test）
+运行检查（不依赖 pytest 测试集）：
+- 后端：导入 + FastAPI TestClient smoke
+- 前端：`npm run build`
 
 **使用场景**：
 - 验证代码修改
@@ -123,7 +124,7 @@ clean.bat
 
 ```bash
 # 交互式菜单（推荐）
-python scripts/manage_sessions.py
+python manage_sessions.py
 ```
 
 **使用场景**：

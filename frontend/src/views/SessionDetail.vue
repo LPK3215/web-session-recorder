@@ -75,7 +75,7 @@
           <el-timeline>
             <el-timeline-item
               v-for="event in events"
-              :key="event.id"
+              :key="event.seq"
               :timestamp="formatTimestamp(event.timestamp)"
               placement="top"
             >
@@ -89,10 +89,10 @@
                   </div>
                   <el-button
                     text
-                    @click="toggleEventDetail(event.id)"
-                    :icon="expandedEvents.has(event.id) ? 'ArrowUp' : 'ArrowDown'"
+                    @click="toggleEventDetail(event.seq)"
+                    :icon="expandedEvents.has(event.seq) ? 'ArrowUp' : 'ArrowDown'"
                   >
-                    {{ expandedEvents.has(event.id) ? '收起' : '展开' }}
+                    {{ expandedEvents.has(event.seq) ? '收起' : '展开' }}
                   </el-button>
                 </div>
 
@@ -109,7 +109,7 @@
 
                 <!-- Expanded Event Details -->
                 <el-collapse-transition>
-                  <div v-show="expandedEvents.has(event.id)" class="event-details">
+                  <div v-show="expandedEvents.has(event.seq)" class="event-details">
                     <el-divider />
 
                     <!-- Target Data -->

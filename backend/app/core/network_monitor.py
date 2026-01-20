@@ -17,39 +17,91 @@ logger = logging.getLogger(__name__)
 class NetworkMonitor:
     """Monitor and capture network requests and responses."""
     
-    def __init__(self):
+    def __init__(self, recorder_config: Optional[Dict[str, Any]] = None):
         """Initialize Network Monitor."""
         self.network_callback: Optional[Callable] = None
         self.pending_requests: Dict[str, Dict[str, Any]] = {}
-        self.privacy_mode = config.get('recorder', 'recorder.privacy_mode', 'none')
-        self.capture_enabled = config.get('recorder', 'recorder.network.enabled', True)
-        self.capture_request = config.get('recorder', 'recorder.network.capture_request', True)
-        self.capture_response = config.get('recorder', 'recorder.network.capture_response', True)
-        self.capture_body = config.get('recorder', 'recorder.network.capture_body', True)
-        self.max_body_size = config.get('recorder', 'recorder.network.max_body_size', 1048576)
-        self.ignore_resource_types = config.get(
-            'recorder', 
-            'recorder.network.ignore_resource_types', 
+        self._recorder_config = recorder_config or {}
+        self.privacy_mode = self._cfg_get('recorder.privacy_mode', 'none')
+        self.capture_enabled = self._cfg_get('recorder.network.enabled', True)
+        self.capture_request = self._cfg_get('recorder.network.capture_request', True)
+        self.capture_response = self._cfg_get('recorder.network.capture_response', True)
+        self.capture_body = self._cfg_get('recorder.network.capture_body', True)
+        self.max_body_size = self._cfg_get('recorder.network.max_body_size', 1048576)
+        self.max_body_text_len = int(self._cfg_get('recorder.network.max_body_text_len', 0) or 0)
+        self.capture_mode = str(self._cfg_get('recorder.network.capture_mode', 'all') or 'all')
+        self.include_url_patterns = self._cfg_get('recorder.network.include_url_patterns', []) or []
+        self.ignore_resource_types = self._cfg_get(
+            'recorder.network.ignore_resource_types',
             ['image', 'stylesheet', 'font', 'media']
         )
-        self.ignore_url_patterns = config.get(
-            'recorder',
-            'recorder.network.ignore_url_patterns',
-            []
-        )
+        self.ignore_url_patterns = self._cfg_get('recorder.network.ignore_url_patterns', [])
         
         # Network body storage configuration
-        self.store_bodies = config.get('recorder', 'recorder.network.store_bodies', False)
-        self.store_bodies_threshold = config.get('recorder', 'recorder.network.store_bodies_threshold', 102400)
-        self.storage_directory = config.get('recorder', 'recorder.network.storage_directory', 'network')
+        self.store_bodies = self._cfg_get('recorder.network.store_bodies', False)
+        self.store_bodies_threshold = self._cfg_get('recorder.network.store_bodies_threshold', 102400)
+        self.storage_directory = self._cfg_get('recorder.network.storage_directory', 'network')
+        self._body_file_prefix: Optional[str] = None
         
         # Current session ID for file naming
         self.current_session_id: Optional[str] = None
         self.request_counter = 0
+        self.enabled = True
         
         # Ensure storage directory exists if body storage is enabled
         if self.store_bodies:
             self._ensure_storage_directory()
+
+    def _cfg_get(self, key_path: str, default: Any = None) -> Any:
+        """Read from per-session recorder_config with fallback to global config."""
+        try:
+            parts = key_path.split('.')
+            value: Any = self._recorder_config
+            for part in parts:
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                else:
+                    raise KeyError(part)
+            return value
+        except Exception:
+            return config.get('recorder', key_path, default)
+
+    def _cut_text(self, text: Optional[str]) -> Optional[str]:
+        if text is None or not isinstance(text, str):
+            return text
+        limit = int(self.max_body_text_len or 0)
+        if limit <= 0 or len(text) <= limit:
+            return text
+        return text[:limit] + f"\n…(truncated: {len(text)})"
+
+    def _should_include_url(self, url: str) -> bool:
+        if self.capture_mode != 'minimal':
+            return True
+        if not self.include_url_patterns:
+            return False
+        for pattern in self.include_url_patterns:
+            try:
+                if re.search(pattern, url):
+                    return True
+            except re.error as e:
+                logger.warning(f"Invalid include regex pattern '{pattern}': {e}")
+        return False
+
+    def set_session_folder(self, run_id: str, network_folder: Path) -> None:
+        """Store network bodies under the session folder (runs/<run_id>/network)."""
+        self.set_session_id(run_id)
+        self.storage_directory = str(network_folder)
+        self._body_file_prefix = "network"
+        if self.store_bodies:
+            self._ensure_storage_directory()
+
+    def disable(self) -> None:
+        """Disable monitoring (used when user stops recording but keeps the browser open)."""
+        self.enabled = False
+        self.capture_enabled = False
+        self.network_callback = None
+        self.pending_requests.clear()
+        logger.info("Network monitoring disabled")
     
     def set_network_callback(self, callback: Callable) -> None:
         """
@@ -136,7 +188,9 @@ class NetworkMonitor:
             
             logger.info(f"Saved network body to: {filepath}")
             
-            # Return relative path
+            # Return session-relative path (so API can expose via /runs/<run_id>/...)
+            if self._body_file_prefix:
+                return f"{self._body_file_prefix}/{filename}"
             return str(filepath)
             
         except Exception as e:
@@ -198,6 +252,9 @@ class NetworkMonitor:
             request: Playwright Request object
         """
         try:
+            if not self.enabled:
+                return
+
             # Check if we should capture this request
             if not self.should_capture_request(request):
                 return
@@ -225,6 +282,9 @@ class NetworkMonitor:
             response: Playwright Response object
         """
         try:
+            if not self.enabled:
+                return
+
             # Check if we should capture this response
             if not self.should_capture_request(response.request):
                 return
@@ -262,6 +322,9 @@ class NetworkMonitor:
             request: Playwright Request object
         """
         try:
+            if not self.enabled:
+                return
+
             url = request.url
             if url in self.pending_requests:
                 # Mark as failed
@@ -302,7 +365,7 @@ class NetworkMonitor:
                     if post_data:
                         # Check size limit
                         if len(post_data) <= self.max_body_size:
-                            request_data['body'] = post_data
+                            request_data['body'] = self._cut_text(post_data) if isinstance(post_data, str) else post_data
                         else:
                             request_data['body'] = f"[Body too large: {len(post_data)} bytes]"
                 except Exception as e:
@@ -389,7 +452,7 @@ class NetworkMonitor:
                         else:
                             # Body is small enough to store inline
                             if body_size <= self.max_body_size:
-                                request_data['body'] = post_data
+                                request_data['body'] = self._cut_text(post_data) if isinstance(post_data, str) else post_data
                             else:
                                 request_data['body'] = f"[Body too large: {body_size} bytes]"
                             request_data['body_size'] = body_size
@@ -447,7 +510,7 @@ class NetworkMonitor:
                             if body_size <= self.max_body_size:
                                 # Try to decode as text
                                 try:
-                                    response_data['body'] = body.decode('utf-8')
+                                    response_data['body'] = self._cut_text(body.decode('utf-8'))
                                 except UnicodeDecodeError:
                                     # Binary data, store as base64 or size info
                                     response_data['body'] = f"[Binary data: {body_size} bytes]"
@@ -602,6 +665,10 @@ class NetworkMonitor:
         """
         # Check if network monitoring is enabled
         if not self.capture_enabled:
+            return False
+
+        # Minimal mode: only capture whitelisted URLs
+        if not self._should_include_url(request.url):
             return False
         
         # Check resource type

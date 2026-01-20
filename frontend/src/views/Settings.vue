@@ -127,41 +127,6 @@
           </div>
         </el-tab-pane>
 
-        <!-- Database Config -->
-        <el-tab-pane label="数据库配置 (database.yaml)" name="database">
-          <div class="config-editor">
-            <div class="editor-header">
-              <el-text type="info">数据库连接和保留策略</el-text>
-              <div class="editor-actions">
-                <el-button size="small" @click="resetConfig('database')">
-                  <el-icon><RefreshLeft /></el-icon>
-                  重置为默认值
-                </el-button>
-                <el-button
-                  type="primary"
-                  size="small"
-                  :loading="saving.database"
-                  @click="saveConfig('database')"
-                >
-                  <el-icon><Check /></el-icon>
-                  保存
-                </el-button>
-              </div>
-            </div>
-            <el-input
-              v-model="configs.database"
-              type="textarea"
-              :rows="15"
-              placeholder="YAML 配置内容"
-              class="yaml-editor"
-              :disabled="saving.database"
-            />
-            <div v-if="validationErrors.database" class="validation-error">
-              <el-alert :title="validationErrors.database" type="error" :closable="false" />
-            </div>
-          </div>
-        </el-tab-pane>
-
         <!-- Locators Config -->
         <el-tab-pane label="定位器配置 (locators.yaml)" name="locators">
           <div class="config-editor">
@@ -218,7 +183,6 @@ const saving = reactive({
   app: false,
   browser: false,
   recorder: false,
-  database: false,
   locators: false
 })
 
@@ -227,7 +191,6 @@ const configs = reactive({
   app: '',
   browser: '',
   recorder: '',
-  database: '',
   locators: ''
 })
 
@@ -236,7 +199,6 @@ const originalConfigs = reactive({
   app: '',
   browser: '',
   recorder: '',
-  database: '',
   locators: ''
 })
 
@@ -245,7 +207,6 @@ const validationErrors = reactive({
   app: '',
   browser: '',
   recorder: '',
-  database: '',
   locators: ''
 })
 
@@ -259,7 +220,7 @@ const fetchConfigs = async () => {
     
     // Convert config objects to YAML strings
     // The backend should return YAML strings, but if it returns objects, we'll handle both
-    for (const key of ['app', 'browser', 'recorder', 'database', 'locators']) {
+    for (const key of ['app', 'browser', 'recorder', 'locators']) {
       if (data[key]) {
         if (typeof data[key] === 'string') {
           configs[key] = data[key]

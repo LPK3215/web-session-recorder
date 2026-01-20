@@ -86,7 +86,7 @@ echo.
 echo 1. 使用 gunicorn 或 uvicorn 运行后端
 echo 2. 使用 Nginx 作为反向代理
 echo 3. 配置 HTTPS
-echo 4. 设置数据库备份
+echo 4. 设置会话数据备份 ^(runs/^)
 echo 5. 配置日志轮转
 echo.
 ) > dist\DEPLOY.md

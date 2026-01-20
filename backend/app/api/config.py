@@ -1,11 +1,12 @@
 """Configuration management API endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import logging
 
 from app.core.config import config
+from app.core.profile_manager import profile_manager
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ router = APIRouter(prefix="/api/config", tags=["config"])
 
 class ConfigUpdateRequest(BaseModel):
     """Request schema for updating configuration."""
-    file: str = Field(..., description="Config file name (app, browser, recorder, database, locators)")
+    file: str = Field(..., description="Config file name (app, browser, recorder, locators)")
     content: str = Field(..., description="YAML content as string")
 
 
@@ -23,7 +24,6 @@ class ConfigResponse(BaseModel):
     app: Dict[str, Any] = Field(..., description="Application configuration")
     browser: Dict[str, Any] = Field(..., description="Browser configuration")
     recorder: Dict[str, Any] = Field(..., description="Recorder configuration")
-    database: Dict[str, Any] = Field(..., description="Database configuration")
     locators: Dict[str, Any] = Field(..., description="Locators configuration")
 
 
@@ -61,7 +61,6 @@ async def get_config():
     - app: Application and server settings
     - browser: Browser paths and launch options
     - recorder: Recording strategy and event capture settings
-    - database: Database connection and retention policy
     - locators: Locator generation strategies and priorities
     
     Returns:
@@ -74,7 +73,7 @@ async def get_config():
         all_configs = config.get_all()
         
         # Ensure all expected config files are present
-        expected_configs = ['app', 'browser', 'recorder', 'database', 'locators']
+        expected_configs = ['app', 'browser', 'recorder', 'locators']
         response_data = {}
         
         for config_name in expected_configs:
@@ -88,7 +87,7 @@ async def get_config():
 
 
 @router.get("/presets", response_model=RecorderPresetsResponse)
-async def get_recorder_presets():
+async def get_recorder_presets(profile: Optional[str] = Query(default=None, description="Recording profile name")):
     """
     Get recorder presets (default URLs and window sizes).
     
@@ -99,13 +98,16 @@ async def get_recorder_presets():
         HTTPException: If configuration loading fails
     """
     try:
+        effective = profile_manager.load_recorder_config(profile)
+        recorder = effective.get("recorder", {}) if isinstance(effective, dict) else {}
+
         # Get default URLs
-        default_urls = config.get('recorder', 'recorder.default_urls', [])
-        url_presets = [UrlPreset(**url) for url in default_urls]
+        default_urls = recorder.get("default_urls", []) if isinstance(recorder, dict) else []
+        url_presets = [UrlPreset(**url) for url in (default_urls or [])]
         
         # Get window sizes
-        window_sizes = config.get('recorder', 'recorder.window_sizes', [])
-        size_presets = [WindowSizePreset(**size) for size in window_sizes]
+        window_sizes = recorder.get("window_sizes", []) if isinstance(recorder, dict) else []
+        size_presets = [WindowSizePreset(**size) for size in (window_sizes or [])]
         
         return RecorderPresetsResponse(
             default_urls=url_presets,
@@ -138,7 +140,7 @@ async def update_config(request: ConfigUpdateRequest):
     """
     try:
         # Validate file name
-        valid_files = ['app', 'browser', 'recorder', 'database', 'locators']
+        valid_files = ['app', 'browser', 'recorder', 'locators']
         if request.file not in valid_files:
             raise HTTPException(
                 status_code=400,
