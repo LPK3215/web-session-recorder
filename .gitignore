@@ -60,3 +60,10 @@ Thumbs.db
 
 # Playwright
 .playwright/
+
+# Claude / Kiro
+.claude/
+.kiro/
+
+# Bat backup
+*.bak

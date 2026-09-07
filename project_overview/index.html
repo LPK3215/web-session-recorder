@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Session Recorder · 项目全景观览</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+  <div id="scroll-progress"></div>
+
+  <nav class="navbar glass">
+    <div class="nav-brand">📡 Web Session Recorder</div>
+    <ul class="nav-links">
+      <li><a href="#hero" class="nav-link active">概览</a></li>
+      <li><a href="#intro" class="nav-link">简介</a></li>
+      <li><a href="#architecture" class="nav-link">架构</a></li>
+      <li><a href="#techstack" class="nav-link">技术栈</a></li>
+      <li><a href="#structure" class="nav-link">目录</a></li>
+      <li><a href="#quickstart" class="nav-link">开始</a></li>
+      <li><a href="#api" class="nav-link">API</a></li>
+      <li><a href="#docs" class="nav-link">文档</a></li>
+    </ul>
+    <button id="theme-toggle" class="theme-toggle" aria-label="切换主题">🌙</button>
+  </nav>
+
+  <!-- Hero -->
+  <section id="hero" class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <div class="hero-badge">v1.0.0</div>
+      <h1 class="hero-title">Web Session Recorder</h1>
+      <p class="hero-subtitle">基于 Playwright + FastAPI + Vue3 的浏览器会话录制工具</p>
+      <div class="hero-tags">
+        <span class="tag">Playwright</span>
+        <span class="tag">FastAPI</span>
+        <span class="tag">Vue 3</span>
+        <span class="tag">WebSocket</span>
+        <span class="tag">Pure File Storage</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Intro -->
+  <section id="intro" class="section">
+    <div class="container">
+      <h2 class="section-title">📋 项目简介</h2>
+      <div class="card">
+        <p>Web Session Recorder 通过 Playwright 自动化浏览器，注入捕获脚本记录用户交互事件（点击、输入、导航等）和网络请求，通过 WebSocket 实时推送到 Vue3 前端展示。所有数据以纯 JSON 和文件系统方式存储，便于频繁查看与备份。</p>
+        <div class="highlights">
+          <div class="hi"><span class="hi-icon">🖱️</span><h4>事件捕获</h4><p>click、input、navigation、scroll 等，含元素定位信息</p></div>
+          <div class="hi"><span class="hi-icon">🌐</span><h4>网络监控</h4><p>all/minimal 两种模式，请求/响应体可落盘</p></div>
+          <div class="hi"><span class="hi-icon">📸</span><h4>可选截图</h4><p>按事件触发，截图质量可配置</p></div>
+          <div class="hi"><span class="hi-icon">⚡</span><h4>实时推送</h4><p>WebSocket 实时事件流，前端即时展示</p></div>
+          <div class="hi"><span class="hi-icon">💾</span><h4>纯文件存储</h4><p>JSON + 文件系统，无需数据库</p></div>
+          <div class="hi"><span class="hi-icon">⚙️</span><h4>Profiles 规范</h4><p>YAML 配置档控制录制行为</p></div>
+          <div class="hi"><span class="hi-icon">🧪</span><h4>脚本生成</h4><p>自动生成 Playwright / Selenium 测试脚本</p></div>
+          <div class="hi"><span class="hi-icon">🏷️</span><h4>会话管理</h4><p>分页、筛选、标签、批量删除、导出</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Architecture -->
+  <section id="architecture" class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">🏗️ 架构全景</h2>
+      <div class="card">
+        <div class="arch-diagram">
+          <svg viewBox="0 0 980 460" xmlns="http://www.w3.org/2000/svg" class="arch-svg">
+            <defs>
+              <linearGradient id="g-fe" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#42b883"/><stop offset="100%" stop-color="#35495e"/></linearGradient>
+              <linearGradient id="g-be" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#009688"/><stop offset="100%" stop-color="#00695c"/></linearGradient>
+              <linearGradient id="g-br" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ff7043"/><stop offset="100%" stop-color="#d84315"/></linearGradient>
+              <linearGradient id="g-st" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#7e57c2"/><stop offset="100%" stop-color="#512da8"/></linearGradient>
+              <linearGradient id="g-cf" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#5c6bc0"/><stop offset="100%" stop-color="#3949ab"/></linearGradient>
+              <marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L9,5 L0,10 Z" fill="#888"/></marker>
+              <marker id="arr-ws" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L9,5 L0,10 Z" fill="#42b883"/></marker>
+            </defs>
+            <!-- Frontend -->
+            <rect x="30" y="20" width="250" height="140" rx="14" fill="url(#g-fe)" opacity="0.9"/>
+            <text x="155" y="48" text-anchor="middle" fill="#fff" font-size="15" font-weight="700" font-family="Inter">Vue3 前端</text>
+            <rect x="50" y="62" width="90" height="26" rx="5" fill="rgba(255,255,255,0.2)"/><text x="95" y="79" text-anchor="middle" fill="#fff" font-size="10">会话列表</text>
+            <rect x="150" y="62" width="90" height="26" rx="5" fill="rgba(255,255,255,0.2)"/><text x="195" y="79" text-anchor="middle" fill="#fff" font-size="10">会话详情</text>
+            <rect x="50" y="96" width="90" height="26" rx="5" fill="rgba(255,255,255,0.2)"/><text x="95" y="113" text-anchor="middle" fill="#fff" font-size="10">设置页</text>
+            <rect x="150" y="96" width="90" height="26" rx="5" fill="rgba(255,255,255,0.2)"/><text x="195" y="113" text-anchor="middle" fill="#fff" font-size="10">验证页</text>
+            <!-- Backend -->
+            <rect x="340" y="20" width="280" height="400" rx="14" fill="url(#g-be)" opacity="0.9"/>
+            <text x="480" y="48" text-anchor="middle" fill="#fff" font-size="15" font-weight="700" font-family="Inter">FastAPI 后端</text>
+            <rect x="360" y="62" width="240" height="28" rx="5" fill="rgba(255,255,255,0.2)"/><text x="480" y="80" text-anchor="middle" fill="#fff" font-size="11">Session Manager</text>
+            <rect x="360" y="98" width="115" height="28" rx="5" fill="rgba(255,255,255,0.15)"/><text x="417" y="116" text-anchor="middle" fill="#fff" font-size="10">Browser</text>
+            <rect x="485" y="98" width="115" height="28" rx="5" fill="rgba(255,255,255,0.15)"/><text x="542" y="116" text-anchor="middle" fill="#fff" font-size="10">EventCapturer</text>
+            <rect x="360" y="134" width="115" height="28" rx="5" fill="rgba(255,255,255,0.15)"/><text x="417" y="152" text-anchor="middle" fill="#fff" font-size="10">NetworkMonitor</text>
+            <rect x="485" y="134" width="115" height="28" rx="5" fill="rgba(255,255,255,0.15)"/><text x="542" y="152" text-anchor="middle" fill="#fff" font-size="10">StorageManager</text>
+            <rect x="360" y="170" width="115" height="28" rx="5" fill="rgba(255,255,255,0.15)"/><text x="417" y="188" text-anchor="middle" fill="#fff" font-size="10">ProfileManager</text>
+            <rect x="485" y="170" width="115" height="28" rx="5" fill="rgba(255,255,255,0.15)"/><text x="542" y="188" text-anchor="middle" fill="#fff" font-size="10">Locators</text>
+            <rect x="360" y="210" width="240" height="28" rx="5" fill="rgba(255,255,255,0.2)"/><text x="480" y="228" text-anchor="middle" fill="#fff" font-size="11">WebSocket Hub</text>
+            <rect x="360" y="250" width="240" height="28" rx="5" fill="rgba(255,255,255,0.15)"/><text x="480" y="268" text-anchor="middle" fill="#fff" font-size="10">REST API (sessions/config/profiles)</text>
+            <rect x="360" y="290" width="240" height="28" rx="5" fill="rgba(255,255,255,0.15)"/><text x="480" y="308" text-anchor="middle" fill="#fff" font-size="10">Static Files (/runs/...)</text>
+            <rect x="360" y="330" width="240" height="28" rx="5" fill="rgba(255,255,255,0.15)"/><text x="480" y="348" text-anchor="middle" fill="#fff" font-size="10">Script Generator (PW/Selenium)</text>
+            <!-- Browser -->
+            <rect x="680" y="20" width="270" height="170" rx="14" fill="url(#g-br)" opacity="0.9"/>
+            <text x="815" y="48" text-anchor="middle" fill="#fff" font-size="15" font-weight="700" font-family="Inter">Playwright 浏览器</text>
+            <rect x="700" y="62" width="230" height="26" rx="5" fill="rgba(255,255,255,0.2)"/><text x="815" y="79" text-anchor="middle" fill="#fff" font-size="10">Chrome / Edge / Firefox</text>
+            <rect x="700" y="96" width="230" height="26" rx="5" fill="rgba(255,255,255,0.15)"/><text x="815" y="113" text-anchor="middle" fill="#fff" font-size="10">Incognito / User Data Dir</text>
+            <rect x="700" y="130" width="230" height="26" rx="5" fill="rgba(255,255,255,0.15)"/><text x="815" y="147" text-anchor="middle" fill="#fff" font-size="10">injector.js (页面注入)</text>
+            <rect x="700" y="160" width="230" height="22" rx="5" fill="rgba(255,255,255,0.1)"/><text x="815" y="174" text-anchor="middle" fill="#ddd" font-size="9">事件捕获 + 网络拦截</text>
+            <!-- Storage -->
+            <rect x="680" y="230" width="270" height="110" rx="14" fill="url(#g-st)" opacity="0.9"/>
+            <text x="815" y="258" text-anchor="middle" fill="#fff" font-size="15" font-weight="700" font-family="Inter">文件系统存储</text>
+            <rect x="700" y="272" width="230" height="22" rx="5" fill="rgba(255,255,255,0.15)"/><text x="815" y="287" text-anchor="middle" fill="#fff" font-size="10" font-family="JetBrains Mono">runs/&lt;run_id&gt;/</text>
+            <rect x="700" y="302" width="110" height="22" rx="5" fill="rgba(255,255,255,0.1)"/><text x="755" y="317" text-anchor="middle" fill="#ccc" font-size="9">session.json</text>
+            <rect x="820" y="302" width="110" height="22" rx="5" fill="rgba(255,255,255,0.1)"/><text x="875" y="317" text-anchor="middle" fill="#ccc" font-size="9">screenshots/</text>
+            <!-- Config -->
+            <rect x="30" y="200" width="250" height="140" rx="14" fill="url(#g-cf)" opacity="0.85"/>
+            <text x="155" y="228" text-anchor="middle" fill="#fff" font-size="15" font-weight="700" font-family="Inter">YAML 配置</text>
+            <rect x="50" y="242" width="95" height="22" rx="5" fill="rgba(255,255,255,0.15)"/><text x="97" y="257" text-anchor="middle" fill="#fff" font-size="9" font-family="JetBrains Mono">app.yaml</text>
+            <rect x="155" y="242" width="95" height="22" rx="5" fill="rgba(255,255,255,0.15)"/><text x="202" y="257" text-anchor="middle" fill="#fff" font-size="9" font-family="JetBrains Mono">browser.yaml</text>
+            <rect x="50" y="272" width="95" height="22" rx="5" fill="rgba(255,255,255,0.15)"/><text x="97" y="287" text-anchor="middle" fill="#fff" font-size="9" font-family="JetBrains Mono">recorder.yaml</text>
+            <rect x="155" y="272" width="95" height="22" rx="5" fill="rgba(255,255,255,0.15)"/><text x="202" y="287" text-anchor="middle" fill="#fff" font-size="9" font-family="JetBrains Mono">locators.yaml</text>
+            <rect x="50" y="302" width="200" height="22" rx="5" fill="rgba(255,255,255,0.15)"/><text x="150" y="317" text-anchor="middle" fill="#fff" font-size="9" font-family="JetBrains Mono">profiles/*.yaml</text>
+            <!-- Arrows -->
+            <line x1="280" y1="90" x2="335" y2="76" stroke="#888" stroke-width="2" marker-end="url(#arr)"/>
+            <line x1="620" y1="76" x2="675" y2="100" stroke="#888" stroke-width="2" marker-end="url(#arr)"/>
+            <line x1="620" y1="148" x2="675" y2="270" stroke="#888" stroke-width="2" marker-end="url(#arr)"/>
+            <line x1="280" y1="260" x2="335" y2="80" stroke="#888" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+            <line x1="280" y1="110" x2="335" y2="220" stroke="#42b883" stroke-width="2" stroke-dasharray="8,4" marker-end="url(#arr-ws)"/>
+            <text x="298" y="170" fill="#42b883" font-size="9" font-family="Inter" transform="rotate(70 298 170)">WebSocket</text>
+          </svg>
+        </div>
+        <div class="arch-flow">
+          <h4>录制流程</h4>
+          <ol>
+            <li>前端调用 <code>POST /api/sessions/start</code>（携带 profile、url、browser、窗口大小）</li>
+            <li>后端创建 <code>run_id</code> 并创建 <code>backend/runs/&lt;run_id&gt;/</code></li>
+            <li>启动浏览器并创建 context；导航到起始 URL</li>
+            <li>注入 <code>injector.js</code>，开始捕获事件 + 网络监控</li>
+            <li>WebSocket 实时推送事件到前端</li>
+            <li>用户点击"停止录制"或关闭浏览器 → 停止采集并保存 <code>session.json</code></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tech Stack -->
+  <section id="techstack" class="section">
+    <div class="container">
+      <h2 class="section-title">🧱 技术栈</h2>
+      <div class="card">
+        <table class="tech-table">
+          <thead><tr><th>层</th><th>技术</th><th>版本</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td>后端框架</td><td>FastAPI</td><td>0.109.0</td><td>REST API + WebSocket 服务</td></tr>
+            <tr><td>ASGI 服务器</td><td>Uvicorn</td><td>0.27.0</td><td>异步 Web 服务器</td></tr>
+            <tr><td>浏览器自动化</td><td>Playwright</td><td>1.41.0</td><td>浏览器启动、事件捕获、网络拦截</td></tr>
+            <tr><td>数据验证</td><td>Pydantic</td><td>2.5.3</td><td>请求/响应模型验证</td></tr>
+            <tr><td>WebSocket</td><td>websockets</td><td>12.0</td><td>实时事件流推送</td></tr>
+            <tr><td>配置管理</td><td>PyYAML</td><td>6.0.1</td><td>YAML 配置文件解析</td></tr>
+            <tr><td>前端框架</td><td>Vue 3</td><td>3.4+</td><td>响应式 UI</td></tr>
+            <tr><td>UI 组件</td><td>Element Plus</td><td>2.5+</td><td>表格、表单、对话框</td></tr>
+            <tr><td>前端构建</td><td>Vite</td><td>5.0+</td><td>开发服务器 + 生产构建</td></tr>
+            <tr><td>HTTP 客户端</td><td>Axios</td><td>1.6+</td><td>API 调用</td></tr>
+            <tr><td>状态管理</td><td>Pinia</td><td>2.1+</td><td>前端状态管理</td></tr>
+            <tr><td>路由</td><td>Vue Router</td><td>4.2+</td><td>SPA 路由</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Directory Structure -->
+  <section id="structure" class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">📂 目录结构</h2>
+      <div class="card">
+        <div class="tree-container">
+          <details open class="tree-node">
+            <summary>📁 web-session-recorder/</summary>
+            <details open class="tree-node">
+              <summary>📁 backend/ — 后端服务</summary>
+              <details class="tree-node">
+                <summary>📁 app/ — FastAPI 应用</summary>
+                <details class="tree-node">
+                  <summary>📁 api/ — API 路由</summary>
+                  <div class="tree-leaf">📄 sessions.py — 会话 CRUD API</div>
+                  <div class="tree-leaf">📄 websocket.py — WebSocket 实时推送</div>
+                  <div class="tree-leaf">📄 profiles.py — Profile 管理</div>
+                  <div class="tree-leaf">📄 config.py — 配置 API</div>
+                  <div class="tree-leaf">📄 schemas.py — Pydantic 模型</div>
+                  <div class="tree-leaf">📄 middleware.py — 异常处理</div>
+                </details>
+                <details class="tree-node">
+                  <summary>📁 core/ — 核心逻辑</summary>
+                  <div class="tree-leaf">📄 session_manager.py — 会话生命周期</div>
+                  <div class="tree-leaf">📄 browser.py — Playwright 浏览器管理</div>
+                  <div class="tree-leaf">📄 event_capturer.py — 事件捕获</div>
+                  <div class="tree-leaf">📄 network_monitor.py — 网络监控</div>
+                  <div class="tree-leaf">📄 storage_manager.py — 文件存储</div>
+                  <div class="tree-leaf">📄 profile_manager.py — Profile 合并</div>
+                  <div class="tree-leaf">📄 locators.py — 元素定位器生成</div>
+                </details>
+                <div class="tree-leaf">📄 main.py — FastAPI 入口</div>
+              </details>
+              <details class="tree-node">
+                <summary>📁 config/ — YAML 配置</summary>
+                <div class="tree-leaf">📄 app.yaml / browser.yaml / recorder.yaml / locators.yaml</div>
+                <div class="tree-leaf">📁 profiles/ — 保存规范 (*.yaml)</div>
+              </details>
+              <details class="tree-node">
+                <summary>📁 scripts/ — 脚本工具</summary>
+                <div class="tree-leaf">📄 injector.js — 页面注入捕获脚本</div>
+                <div class="tree-leaf">📄 manage_sessions.py — 会话管理工具</div>
+                <div class="tree-leaf">📄 smoke_test.py — 冒烟测试</div>
+                <div class="tree-leaf">🔧 setup.bat / test.bat / deploy.bat</div>
+              </details>
+              <div class="tree-leaf">📄 run.py — 后端启动</div>
+              <div class="tree-leaf">📄 requirements.txt — Python 依赖</div>
+            </details>
+            <details class="tree-node">
+              <summary>📁 frontend/ — Vue3 前端</summary>
+              <details class="tree-node">
+                <summary>📁 src/</summary>
+                <div class="tree-leaf">📄 App.vue / main.js</div>
+                <div class="tree-leaf">📁 api/ — API 封装</div>
+                <div class="tree-leaf">📁 composables/ — 组合式函数</div>
+                <div class="tree-leaf">📁 router/ — 路由配置</div>
+                <div class="tree-leaf">📁 views/ — 页面组件</div>
+              </details>
+              <div class="tree-leaf">📄 vite.config.js / package.json</div>
+            </details>
+            <div class="tree-leaf">📁 docs/ — 完整文档</div>
+            <div class="tree-leaf">🔧 build.bat / start.bat / stop.bat</div>
+            <div class="tree-leaf">📄 .gitignore / LICENSE / README.md / CONTRIBUTING.md / CHANGELOG.md</div>
+          </details>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section id="quickstart" class="section">
+    <div class="container">
+      <h2 class="section-title">🚀 快速开始</h2>
+      <div class="card">
+        <h4>前置要求</h4>
+        <ul class="req-list">
+          <li>✅ Python 3.9+</li>
+          <li>✅ Node.js 18+</li>
+          <li>✅ Playwright 浏览器（运行 <code>playwright install</code>）</li>
+        </ul>
+        <h4>一键构建与启动（Windows）</h4>
+        <div class="code-block">
+          <div class="code-header"><span>Bat</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>:: 构建项目
+build.bat
+
+:: 启动前后端服务
+start.bat
+
+:: 前端: http://localhost:5173
+:: 后端: http://localhost:8000
+
+:: 停止服务
+stop.bat</code></pre>
+        </div>
+        <h4>手动启动（开发模式）</h4>
+        <div class="code-block">
+          <div class="code-header"><span>Backend</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>cd backend
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+playwright install
+python run.py</code></pre>
+        </div>
+        <div class="code-block">
+          <div class="code-header"><span>Frontend</span><button class="copy-btn" onclick="copyCode(this)">复制</button></div>
+<pre><code>cd frontend
+npm install
+npm run dev</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- API -->
+  <section id="api" class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">🔌 API 概览</h2>
+      <div class="card">
+        <table class="api-table">
+          <thead><tr><th>方法</th><th>路径</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method post">POST</span></td><td>/api/sessions/start</td><td>启动录制会话</td></tr>
+            <tr><td><span class="method post">POST</span></td><td>/api/sessions/{id}/stop</td><td>停止录制</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/api/sessions</td><td>会话列表（分页/筛选）</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/api/sessions/{id}</td><td>会话详情</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/api/sessions/{id}/events</td><td>事件列表（分页）</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/api/sessions/{id}/export</td><td>导出 JSON</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/api/sessions/{id}/generate-script</td><td>生成测试脚本</td></tr>
+            <tr><td><span class="method del">DEL</span></td><td>/api/sessions/{id}</td><td>删除会话</td></tr>
+            <tr><td><span class="method post">POST</span></td><td>/api/sessions/batch-delete</td><td>批量删除</td></tr>
+            <tr><td><span class="method patch">PATCH</span></td><td>/api/sessions/{id}</td><td>更新会话元数据</td></tr>
+            <tr><td><span class="method post">POST</span></td><td>/api/sessions/{id}/tags</td><td>添加标签</td></tr>
+            <tr><td><span class="method del">DEL</span></td><td>/api/sessions/{id}/tags</td><td>删除标签</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/api/sessions/validate</td><td>验证会话完整性</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/api/sessions/stats</td><td>会话统计</td></tr>
+            <tr><td><span class="method ws">WS</span></td><td>/ws/sessions/{id}</td><td>WebSocket 实时事件流</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/api/config/presets</td><td>获取预设配置</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/api/profiles</td><td>获取 Profile 列表</td></tr>
+            <tr><td><span class="method get">GET</span></td><td>/health</td><td>健康检查</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Docs -->
+  <section id="docs" class="section">
+    <div class="container">
+      <h2 class="section-title">📚 文档索引</h2>
+      <div class="card">
+        <div class="docs-grid">
+          <a class="doc-card" href="#"><strong>安装指南</strong><span>docs/installation.md</span><p>环境准备与安装步骤</p></a>
+          <a class="doc-card" href="#"><strong>架构设计</strong><span>docs/architecture.md</span><p>技术架构与模块说明</p></a>
+          <a class="doc-card" href="#"><strong>使用指南</strong><span>docs/usage.md</span><p>录制流程与操作说明</p></a>
+          <a class="doc-card" href="#"><strong>配置说明</strong><span>docs/configuration.md</span><p>YAML 配置详解</p></a>
+          <a class="doc-card" href="#"><strong>API 文档</strong><span>docs/api.md</span><p>REST API 接口说明</p></a>
+          <a class="doc-card" href="#"><strong>数据存储</strong><span>docs/data-storage.md</span><p>session.json 结构说明</p></a>
+          <a class="doc-card" href="#"><strong>开发指南</strong><span>docs/development.md</span><p>开发环境与扩展</p></a>
+          <a class="doc-card" href="#"><strong>脚本工具</strong><span>docs/scripts.md</span><p>辅助脚本说明</p></a>
+          <a class="doc-card" href="#"><strong>故障排查</strong><span>docs/troubleshooting.md</span><p>常见问题与解决</p></a>
+          <a class="doc-card" href="#"><strong>录制分析</strong><span>docs/recording-process-analysis.md</span><p>录制流程深度分析</p></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- License -->
+  <section class="section section-alt">
+    <div class="container">
+      <h2 class="section-title">📄 许可证</h2>
+      <div class="card license-card">
+        <p>本项目基于 <strong>MIT License</strong> 开源。</p>
+        <p>Copyright © 2024-2026 LPK3215</p>
+        <p>仓库地址：<a href="https://github.com/LPK3215/web-session-recorder" target="_blank">https://github.com/LPK3215/web-session-recorder</a></p>
+      </div>
+    </div>
+  </section>
+
+  <button id="back-to-top" class="back-to-top" aria-label="返回顶部">↑</button>
+
+  <footer class="footer">
+    <p>Generated by CatPaw · 2026-09-08 · Web Session Recorder v1.0.0</p>
+  </footer>
+
+  <script src="./script.js"></script>
+</body>
+</html>
